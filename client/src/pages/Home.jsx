@@ -219,6 +219,86 @@ const Home = () => {
         </div>
       </div>
       
+      {/* Secțiunea Despre Noi */}
+      <div className="relative py-24 bg-cover bg-center" style={{ backgroundImage: "url('/images/background2.jpg')" }}>
+        {/* Efect de transparență */}
+        <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <motion.span 
+              className="inline-block px-3 py-1 text-blue-100 bg-blue-600 bg-opacity-80 rounded-full text-sm font-semibold mb-4"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              DESPRE NOI
+            </motion.span>
+            <motion.h2 
+              className="text-4xl font-bold text-white mb-4"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              Descoperă Povestea Noastră
+            </motion.h2>
+            <div className="w-24 h-1 bg-blue-400 mx-auto mb-8"></div>
+          </div>
+
+          <motion.div 
+            className="max-w-4xl mx-auto bg-white bg-opacity-90 rounded-lg p-8 shadow-xl"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+          >
+            <p className="text-lg text-gray-700 leading-relaxed">
+              BirdHub este o platformă dedicată pasionaților de natură și ornitologie, având scopul de a facilita explorarea și înțelegerea lumii fascinante a păsărilor. Misiunea noastră este să oferim un spațiu interactiv și educativ, unde utilizatorii pot descoperi sute de specii de păsări prin enciclopedii detaliate, căutări avansate bazate pe caracteristici precum culoarea, habitatul sau aspectul, precum și jocuri educative captivante. Echipa noastră se dedică creării unei experiențe prietenoase și accesibile, inspirând iubitorii de păsări să învețe, să exploreze și să protejeze biodiversitatea aviaună. BirdHub este mai mult decât o aplicație – este o comunitate pentru cei care apreciază frumusețea zborului și cântecul păsărilor.
+            </p>
+          </motion.div>
+
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <motion.div 
+              className="bg-white bg-opacity-90 rounded-lg p-6 text-center"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+            >
+              <div className="text-blue-600 text-4xl mb-4">🦜</div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">Explorare</h3>
+              <p className="text-gray-600">Descoperă sute de specii de păsări din România</p>
+            </motion.div>
+
+            <motion.div 
+              className="bg-white bg-opacity-90 rounded-lg p-6 text-center"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+            >
+              <div className="text-blue-600 text-4xl mb-4">📚</div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">Educație</h3>
+              <p className="text-gray-600">Învață prin intermediul jocurilor interactive</p>
+            </motion.div>
+
+            <motion.div 
+              className="bg-white bg-opacity-90 rounded-lg p-6 text-center"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+            >
+              <div className="text-blue-600 text-4xl mb-4">🌿</div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">Comunitate</h3>
+              <p className="text-gray-600">Fii parte dintr-o comunitate de iubitori ai naturii</p>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+      
       {/* CTA Section cu design modern și gradient */}
       <div className="relative overflow-hidden py-24">
         {/* Gradient de fundal */}

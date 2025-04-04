@@ -1,21 +1,23 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import BirdEncyclopedia from './pages/BirdEncyclopedia';
-import BirdFilter from './pages/BirdFilter';
-import Contact from './components/Contact';
-import About from './components/About';
-import { PrivateRoute, AdminRoute } from './components/routing/ProtectedRoute';
-import Favorites from './pages/user/Favorites';
-import Profile from './pages/user/Profile';
-import AdminDashboard from './pages/admin/Dashboard';
-import AdminUsers from './pages/admin/Users';
-import AdminBirds from './pages/admin/Birds';
-import NotFound from './pages/NotFound';
-import BirdQuizGame from './pages/BirdQuizGame';
-import QuizHistory from './pages/QuizHistory';
+import Home from './pages/Home.jsx';
+import Login from './pages/Login.js';
+import Signup from './pages/Signup.js';
+import BirdEncyclopedia from './pages/BirdEncyclopedia.jsx';
+import BirdFilter from './pages/BirdFilter.jsx';
+import Contact from './components/Contact.jsx';
+import { PrivateRoute, AdminRoute } from './components/routing/ProtectedRoute.js';
+import Favorites from './pages/user/Favorites.js';
+import Profile from './pages/user/Profile.js';
+import AdminDashboard from './pages/admin/Dashboard.js';
+import AdminUsers from './pages/admin/Users.js';
+import AdminBirds from './pages/admin/Birds.js';
+import NotFound from './pages/NotFound.js';
+import BirdQuizGame from './pages/BirdQuizGame.js';
+import QuizHistory from './pages/QuizHistory.js';
+import BirdDetail from './pages/BirdDetail.js';
+import Quiz from './pages/Quiz.js';
+import ForgotPassword from './pages/ForgotPassword.js';
 
 const AppRoutes = () => {
   return (
@@ -28,7 +30,10 @@ const AppRoutes = () => {
       <Route path="/encyclopedia" element={<BirdEncyclopedia />} />
       <Route path="/search" element={<BirdFilter />} />
       <Route path="/contact" element={<Contact />} />
-      <Route path="/about" element={<About />} />
+      <Route path="/birds/:id" element={<BirdDetail />} />
+      <Route path="/birds/filter" element={<BirdFilter />} />
+      <Route path="/quiz" element={<Quiz />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
 
       {/* Rute protejate - folosind componenta PrivateRoute direct */}
       <Route path="/games" element={
@@ -37,10 +42,10 @@ const AppRoutes = () => {
         </PrivateRoute>
       } />
       <Route path="/quiz-history" element={
-  <PrivateRoute>
-    <QuizHistory />
-  </PrivateRoute>
-} />
+        <PrivateRoute>
+          <QuizHistory />
+        </PrivateRoute>
+      } />
       <Route path="/favorites" element={
         <PrivateRoute>
           <Favorites />

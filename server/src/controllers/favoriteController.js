@@ -12,7 +12,7 @@ exports.getFavorites = async (req, res) => {
     }
 
     // Obținem utilizatorul cu lista de favorite populată
-    const user = await User.findById(req.user.id).populate('favorites');
+    const user = await User.findById(req.user._id).populate('favorites');
     
     // Dacă nu există utilizator
     if (!user) {
@@ -48,7 +48,7 @@ exports.addFavorite = async (req, res) => {
     }
 
     // Obținem utilizatorul
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ message: 'Utilizator negăsit' });
     }
@@ -89,7 +89,7 @@ exports.removeFavorite = async (req, res) => {
     }
 
     // Obținem utilizatorul
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ message: 'Utilizator negăsit' });
     }
@@ -126,7 +126,7 @@ exports.checkFavorite = async (req, res) => {
     }
 
     // Obținem utilizatorul
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ message: 'Utilizator negăsit' });
     }

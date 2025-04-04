@@ -102,115 +102,77 @@ router.post('/check-answer', async (req, res) => {
   }
 });
 
-// Salvează scorul utilizatorului (necesită autentificare)
-// POST /api/quiz/save-score
+// Salvează scorul unui quiz
 router.post('/save-score', requireUser, async (req, res) => {
-  console.log('DATE PRIMITE:', {
-    body: req.body,
-    user: req.user ? req.user._id : 'Utilizator NEAUTENTIFICAT',
-    headers: req.headers
-  });
-
   try {
-    // Verifică explicit datele
-    if (!req.user) {
-      return res.status(401).json({ message: 'Utilizator neautentificat' });
-    }
-
     const { score, questionsAnswered, correctAnswers } = req.body;
 
-    // Validări suplimentare
+    // Validare date
     if (score === undefined || questionsAnswered === undefined || correctAnswers === undefined) {
-      return res.status(400).json({ 
-        message: 'Date incomplete',
-        primit: req.body
-      });
+      return res.status(400).json({ message: 'Toate câmpurile sunt obligatorii: score, questionsAnswered, correctAnswers' });
     }
 
+    // Creare și salvare scor nou
     const quizScore = new QuizScore({
       userId: req.user._id,
-      score,
-      questionsAnswered,
-      correctAnswers,
+      score: score,
+      questionsAnswered: questionsAnswered,
+      correctAnswers: correctAnswers,
       date: new Date()
     });
 
     await quizScore.save();
 
-    res.json({ 
+    res.status(201).json({
       message: 'Scor salvat cu succes',
-      scoreId: quizScore._id
+      score: quizScore
     });
   } catch (error) {
-    console.error('EROARE COMPLETĂ:', error);
-    res.status(500).json({ 
-      message: 'Eroare la salvarea scorului', 
-      detalii: error.message 
-    });
+    res.status(500).json({ message: 'Eroare la salvarea scorului', error: error.message });
   }
 });
 
-// Obține istoricul scorurilor pentru utilizatorul autentificat
-// GET /api/quiz/scores
+// Obține scorurile unui utilizator
 router.get('/scores', requireUser, async (req, res) => {
   try {
-    const userId = req.user._id;
-    
-    // Găsim toate scorurile utilizatorului, ordonate după dată (cele mai recente primul)
-    const scores = await QuizScore.find({ userId })
+    const scores = await QuizScore.find({ userId: req.user._id })
       .sort({ date: -1 })
-      .limit(10); // Limităm la ultimele 10 pentru performanță
+      .limit(10);
     
     res.json(scores);
   } catch (error) {
-    console.error('Eroare la obținerea scorurilor:', error);
-    res.status(500).json({ message: 'Eroare la obținerea scorurilor' });
+    res.status(500).json({ message: 'Eroare la obținerea scorurilor', error: error.message });
   }
 });
 
-// Obține cele mai bune scoruri din toate timpurile
-// GET /api/quiz/leaderboard
+// Obține clasamentul global
 router.get('/leaderboard', async (req, res) => {
   try {
-    // Găsim cele mai bune scoruri, grupate după utilizator
     const leaderboard = await QuizScore.aggregate([
-      // Grupează după utilizator și găsește scorul maxim
-      {
-        $group: {
-          _id: '$userId',
-          bestScore: { $max: '$score' },
-          totalGames: { $sum: 1 },
-          bestScoreDate: { $first: '$date' }
-        }
-      },
-      // Sortează după cel mai bun scor, descrescător
-      { $sort: { bestScore: -1 } },
-      // Limitează la primii 10 jucători
-      { $limit: 10 },
-      // Obține detaliile utilizatorului
       {
         $lookup: {
-          from: 'users', // numele colecției
-          localField: '_id',
+          from: 'users',
+          localField: 'userId',
           foreignField: '_id',
           as: 'userDetails'
         }
       },
-      // Restructurează rezultatul
       {
         $project: {
           _id: 1,
-          bestScore: 1,
-          totalGames: 1,
-          bestScoreDate: 1,
+          score: 1,
+          questionsAnswered: 1,
+          correctAnswers: 1,
+          date: 1,
           username: { $arrayElemAt: ['$userDetails.username', 0] }
         }
-      }
+      },
+      { $sort: { score: -1, date: -1 } },
+      { $limit: 10 }
     ]);
     
     res.json(leaderboard);
   } catch (error) {
-    console.error('Eroare la obținerea clasamentului:', error);
     res.status(500).json({ message: 'Eroare la obținerea clasamentului' });
   }
 });

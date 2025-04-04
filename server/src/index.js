@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const fs = require('fs').promises;
 require('dotenv').config();
 
 const app = express();
@@ -14,13 +15,30 @@ app.use(express.json());
 app.use(cookieParser()); // Adăugăm middleware pentru cookie-uri
 app.use(cors({
   origin: 'http://localhost:3000',
-  credentials: true // permite cookie-urile cross-origin
+  credentials: true, // permite cookie-urile cross-origin
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(morgan('dev'));
 
 // Servire fișiere statice
-app.use('/images', express.static(path.join(__dirname, 'public/images')));
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+app.use('/images', express.static(path.join(__dirname, '../public/images')));
+
+// Asigură-te că directorul pentru încărcări există
+const createUploadDirs = async () => {
+  const uploadDir = path.join(__dirname, '../public/uploads/profile-images');
+  try {
+    await fs.access(uploadDir);
+  } catch {
+    await fs.mkdir(uploadDir, { recursive: true });
+  }
+};
+
+createUploadDirs().catch(console.error);
 
 // Importare rute
 const birdFavoriteRoutes = require('./routes/birdFavoriteRoutes');

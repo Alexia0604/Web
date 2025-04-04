@@ -5,31 +5,38 @@ const Bird = require('../models/Bird');
 const auth = require('../middleware/authMiddleware');
 
 // GET toate păsările cu paginare
-router.get('/', auth.authenticate, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 12;
-    const skip = (page - 1) * limit;
+    const search = req.query.search || '';
 
-    // Numără total de păsări pentru paginare
-    const total = await Bird.countDocuments();
-    
-    // Obține păsările pentru pagina curentă
-    const birds = await Bird.find()
-      .skip(skip)
+    // Construim query-ul de căutare
+    const query = {};
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { scientificName: { $regex: search, $options: 'i' } },
+        { englishName: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Numărăm totalul de păsări care se potrivesc cu căutarea
+    const total = await Bird.countDocuments(query);
+
+    // Obținem păsările pentru pagina curentă
+    const birds = await Bird.find(query)
+      .skip((page - 1) * limit)
       .limit(limit)
       .sort({ name: 1 });
-    
-    // Calculează numărul total de pagini
-    const pages = Math.ceil(total / limit);
-    
+
     res.json({
       birds,
       pagination: {
         total,
         page,
         limit,
-        pages
+        pages: Math.ceil(total / limit)
       }
     });
   } catch (error) {
@@ -170,65 +177,6 @@ router.get('/:id', auth.authenticate, async (req, res) => {
   } catch (error) {
     console.error(`Eroare la obținerea păsării cu ID ${req.params.id}:`, error);
     res.status(500).json({ message: 'Eroare la obținerea păsării', error: error.message });
-  }
-});
-
-// Rute doar pentru utilizatori autentificați (User și Admin)
-router.post('/favorites/:birdId', auth.authenticate, auth.requireUser, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    const birdId = req.params.birdId;
-    
-    // Verifică dacă pasărea există
-    const bird = await Bird.findById(birdId);
-    if (!bird) {
-      return res.status(404).json({ message: 'Pasărea nu a fost găsită' });
-    }
-    
-    // Verifică dacă pasărea este deja în favorite
-    if (user.favorites.includes(birdId)) {
-      return res.status(400).json({ message: 'Pasărea este deja în favorite' });
-    }
-    
-    // Adaugă pasărea la favorite
-    user.favorites.push(birdId);
-    await user.save();
-    
-    res.json({ message: 'Pasăre adăugată la favorite', favorites: user.favorites });
-  } catch (error) {
-    console.error('Eroare la adăugarea la favorite:', error);
-    res.status(500).json({ message: 'Eroare server', error: error.message });
-  }
-});
-
-router.delete('/favorites/:birdId', auth.authenticate, auth.requireUser, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    const birdId = req.params.birdId;
-    
-    // Verifică dacă pasărea există în favorite
-    if (!user.favorites.includes(birdId)) {
-      return res.status(400).json({ message: 'Pasărea nu este în favorite' });
-    }
-    
-    // Elimină pasărea din favorite
-    user.favorites = user.favorites.filter(id => id.toString() !== birdId);
-    await user.save();
-    
-    res.json({ message: 'Pasăre eliminată din favorite', favorites: user.favorites });
-  } catch (error) {
-    console.error('Eroare la eliminarea din favorite:', error);
-    res.status(500).json({ message: 'Eroare server', error: error.message });
-  }
-});
-
-router.get('/favorites', auth.authenticate, auth.requireUser, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).populate('favorites');
-    res.json(user.favorites);
-  } catch (error) {
-    console.error('Eroare la obținerea favoritelor:', error);
-    res.status(500).json({ message: 'Eroare server', error: error.message });
   }
 });
 

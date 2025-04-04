@@ -107,8 +107,7 @@ const NavyBar = () => {
     
     // Itemi de meniu pentru footer-ul paginii
     const footerMenuItems = [
-        { title: "Contact", path: "/contact" },
-        { title: "Despre Noi", path: "/about" }
+        { title: "Contact", path: "/contact" }
     ];
     
     // Combinăm toți itemii de meniu în funcție de rolul utilizatorului

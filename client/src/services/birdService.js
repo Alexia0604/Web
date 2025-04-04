@@ -38,20 +38,19 @@ const processBird = (bird) => {
 };
 
 // Obține toate păsările cu paginare
-export const getAllBirds = async (page = 1, limit = 12) => {
+export const getAllBirds = async (page = 1, limit = 12, searchTerm = '') => {
   try {
     const response = await axios.get(`${API_URL}/birds`, {
-      params: { page, limit }
+      params: {
+        page,
+        limit,
+        search: searchTerm
+      }
     });
     
     return {
-      birds: response.data.birds,
-      pagination: {
-        total: response.data.pagination.total,
-        page: response.data.pagination.page,
-        limit: response.data.pagination.limit,
-        pages: response.data.pagination.pages
-      }
+      birds: response.data.birds.map(processBird),
+      pagination: response.data.pagination
     };
   } catch (error) {
     console.error('Eroare la obținerea păsărilor:', error);

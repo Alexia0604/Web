@@ -66,7 +66,7 @@ const BirdEncyclopedia = () => {
     }));
   };
 
-  // Fetch birds from API with pagination
+  // Fetch birds from API with pagination and search
   const fetchBirds = useCallback(async () => {
     try {
       setLoading(true);
@@ -82,7 +82,8 @@ const BirdEncyclopedia = () => {
         response = await getBirdsByIds(filteredBirdIds.split(','));
         setIsFiltered(true);
       } else {
-        response = await getAllBirds(pagination.page, pagination.limit);
+        // Adăugăm parametrul de căutare la request
+        response = await getAllBirds(pagination.page, pagination.limit, searchTerm);
       }
 
       let birdData = Array.isArray(response?.birds)
@@ -130,7 +131,7 @@ const BirdEncyclopedia = () => {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, location.search, navigate]);
+  }, [pagination.page, pagination.limit, location.search, navigate, searchTerm]);
 
   // Fetch user's favorites from API
   const fetchUserFavorites = useCallback(async () => {
@@ -204,10 +205,8 @@ const BirdEncyclopedia = () => {
     };
   }, [isPlaying]);
 
-  // Filter birds based on search term
-  const filteredBirds = birds.filter(bird =>
-    bird.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Eliminăm filtrarea locală și folosim direct rezultatele din API
+  const filteredBirds = birds;
 
   // Toggle audio playback
   const toggleAudio = () => {

@@ -31,9 +31,18 @@ const QuizHistory = () => {
       try {
         // Încarcă istoricul scorurilor utilizatorului
         const scoresResponse = await axios.get(`${API_URL}/quiz/scores`, {
-          withCredentials: true
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json'
+          }
         });
-        setUserScores(scoresResponse.data);
+        
+        if (scoresResponse.data && Array.isArray(scoresResponse.data)) {
+          setUserScores(scoresResponse.data);
+        } else {
+          console.error('Format neașteptat pentru scoruri:', scoresResponse.data);
+          setError('Format neașteptat pentru date');
+        }
         
         // Încarcă clasamentul general
         const leaderboardResponse = await axios.get(`${API_URL}/quiz/leaderboard`);
@@ -41,6 +50,7 @@ const QuizHistory = () => {
         
         setError(null);
       } catch (err) {
+        console.error('Eroare la încărcarea datelor:', err);
         setError('Nu am putut încărca datele. Te rugăm să încerci din nou.');
       } finally {
         setLoading(false);
@@ -197,20 +207,21 @@ const QuizHistory = () => {
                       <th className="py-3 px-4 text-left">Poziție</th>
                       <th className="py-3 px-4 text-left">Utilizator</th>
                       <th className="py-3 px-4 text-center">Cel mai bun scor</th>
-                      <th className="py-3 px-4 text-center">Jocuri jucate</th>
-                      <th className="py-3 px-4 text-left">Data recordului</th>
+                      <th className="py-3 px-4 text-center">Data recordului</th>
                     </tr>
                   </thead>
                   <tbody>
                     {leaderboard.map((entry, index) => (
                       <tr key={entry._id} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                         <td className="py-3 px-4">
-                          {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                          {index === 0 && <span className="text-2xl">🥇</span>}
+                          {index === 1 && <span className="text-2xl">🥈</span>}
+                          {index === 2 && <span className="text-2xl">🥉</span>}
+                          {index > 2 && <span>{index + 1}</span>}
                         </td>
                         <td className="py-3 px-4">{entry.username}</td>
-                        <td className="py-3 px-4 text-center font-medium">{entry.bestScore}</td>
-                        <td className="py-3 px-4 text-center">{entry.totalGames}</td>
-                        <td className="py-3 px-4">{formatDate(entry.bestScoreDate)}</td>
+                        <td className="py-3 px-4 text-center font-semibold">{entry.score}</td>
+                        <td className="py-3 px-4 text-center">{formatDate(entry.date)}</td>
                       </tr>
                     ))}
                   </tbody>

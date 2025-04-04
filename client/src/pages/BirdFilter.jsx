@@ -23,9 +23,9 @@ const BirdFilter = () => {
   const [featherColor, setFeatherColor] = useState('');
   const [habitat, setHabitat] = useState('');
   const [results, setResults] = useState([]);
-  const [aspectIndex, setAspectIndex] = useState(0);
-  const [featherColorIndex, setFeatherColorIndex] = useState(0);
-  const [habitatIndex, setHabitatIndex] = useState(0);
+  const [aspectIndex, setAspectIndex] = useState(-1); // Start with -1 to show neutral image
+  const [featherColorIndex, setFeatherColorIndex] = useState(-1); // Start with -1 to show neutral image
+  const [habitatIndex, setHabitatIndex] = useState(-1); // Start with -1 to show neutral image
   
   // State pentru opțiunile de filtrare din baza de date
   const [aspects, setAspects] = useState([]);
@@ -37,6 +37,20 @@ const BirdFilter = () => {
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [loadingResults, setLoadingResults] = useState(false);
   const [error, setError] = useState(null);
+
+  // Funcție pentru încărcarea tuturor păsărilor la început
+  const loadAllBirds = useCallback(async () => {
+    try {
+      setLoadingResults(true);
+      const response = await axios.get(`${API_URL}/birds/filter`);
+      setResults(response.data);
+    } catch (error) {
+      console.error("Eroare la încărcarea păsărilor:", error);
+      setError('Nu s-au putut încărca păsările.');
+    } finally {
+      setLoadingResults(false);
+    }
+  }, []);
 
   // Funcție pentru încărcarea opțiunilor de filtrare din backend
   const loadFilterOptions = useCallback(async () => {
@@ -107,14 +121,15 @@ const BirdFilter = () => {
     }
   }, [aspect, featherColor, habitat]);
 
-  // Încărcăm opțiunile de filtrare la prima randare
+  // Încărcăm toate păsările și opțiunile de filtrare la prima randare
   useEffect(() => {
     loadFilterOptions();
-  }, [loadFilterOptions]);
+    loadAllBirds();
+  }, [loadFilterOptions, loadAllBirds]);
 
-  // Actualizăm rezultatele doar când se apasă un buton sau la prima încărcare
+  // Actualizăm rezultatele doar când se schimbă filtrele
   useEffect(() => {
-    if (filtersLoaded) {
+    if (filtersLoaded && (aspect || featherColor || habitat)) {
       filterBirds();
     }
   }, [filterBirds, aspect, featherColor, habitat, filtersLoaded]);
@@ -122,37 +137,49 @@ const BirdFilter = () => {
   // Funcții pentru navigarea prin opțiuni
   const prevAspect = () => {
     if (aspects.length > 0) {
-      setAspectIndex((aspectIndex - 1 + aspects.length) % aspects.length);
+      const newIndex = (aspectIndex - 1 + aspects.length) % aspects.length;
+      setAspectIndex(newIndex);
+      setAspect(aspects[newIndex].name);
     }
   };
   
   const nextAspect = () => {
     if (aspects.length > 0) {
-      setAspectIndex((aspectIndex + 1) % aspects.length);
+      const newIndex = (aspectIndex + 1) % aspects.length;
+      setAspectIndex(newIndex);
+      setAspect(aspects[newIndex].name);
     }
   };
   
   const prevFeatherColor = () => {
     if (featherColors.length > 0) {
-      setFeatherColorIndex((featherColorIndex - 1 + featherColors.length) % featherColors.length);
+      const newIndex = (featherColorIndex - 1 + featherColors.length) % featherColors.length;
+      setFeatherColorIndex(newIndex);
+      setFeatherColor(featherColors[newIndex].name);
     }
   };
   
   const nextFeatherColor = () => {
     if (featherColors.length > 0) {
-      setFeatherColorIndex((featherColorIndex + 1) % featherColors.length);
+      const newIndex = (featherColorIndex + 1) % featherColors.length;
+      setFeatherColorIndex(newIndex);
+      setFeatherColor(featherColors[newIndex].name);
     }
   };
   
   const prevHabitat = () => {
     if (habitats.length > 0) {
-      setHabitatIndex((habitatIndex - 1 + habitats.length) % habitats.length);
+      const newIndex = (habitatIndex - 1 + habitats.length) % habitats.length;
+      setHabitatIndex(newIndex);
+      setHabitat(habitats[newIndex].name);
     }
   };
   
   const nextHabitat = () => {
     if (habitats.length > 0) {
-      setHabitatIndex((habitatIndex + 1) % habitats.length);
+      const newIndex = (habitatIndex + 1) % habitats.length;
+      setHabitatIndex(newIndex);
+      setHabitat(habitats[newIndex].name);
     }
   };
 
@@ -184,8 +211,8 @@ const BirdFilter = () => {
   return (
     <div className="flex flex-col min-h-screen bg-blue-100 pt-16">
       <div className="flex-grow flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
-          <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
+        <div className="max-w-6xl w-full bg-white rounded-lg shadow-md p-8">
+          <h1 className="text-3xl font-bold text-center mb-8 text-gray-800">
             Ce specie poate fi?
           </h1>
 
@@ -197,103 +224,162 @@ const BirdFilter = () => {
 
           {loading ? (
             <div className="my-8 text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500 mx-auto mb-2"></div>
-              <p className="text-gray-600">Se încarcă opțiunile de filtrare...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-2"></div>
+              <p className="text-gray-600 text-lg">Se încarcă opțiunile de filtrare...</p>
             </div>
           ) : (
-            <>
-              {aspects.length > 0 && (
-                <div className="mb-8">
-                  <h2 className="text-lg font-semibold mb-3 text-gray-700">Aspect</h2>
-                  <div className="flex items-center justify-between">
-                    <button onClick={prevAspect} className="p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors">←</button>
-                    <button
-                      onClick={() => setAspect(aspect === aspects[aspectIndex].name ? '' : aspects[aspectIndex].name)}
-                      className={`p-3 ${aspect === aspects[aspectIndex].name ? 'bg-blue-200' : 'bg-gray-100'} rounded-lg hover:bg-blue-100 transition-colors`}
-                    >
-                      {aspects[aspectIndex].image ? (
-                        <img 
-                          src={aspects[aspectIndex].image} 
-                          alt={aspects[aspectIndex].name} 
-                          className="w-20 h-20 mx-auto object-contain"
-                          onError={handleImageError}
-                        />
-                      ) : (
-                        <div className="w-20 h-20 mx-auto flex items-center justify-center bg-gray-200">
-                          <span className="text-gray-500">Fără imagine</span>
-                        </div>
-                      )}
-                      <span className="text-sm text-gray-600 mt-2 block text-center">{aspects[aspectIndex].name}</span>
-                    </button>
-                    <button onClick={nextAspect} className="p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors">→</button>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Aspect */}
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h2 className="text-xl font-semibold mb-4 text-gray-700 text-center">Aspect</h2>
+                <div className="flex items-center justify-between">
+                  <button 
+                    onClick={prevAspect}
+                    className="p-3 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                    aria-label="Aspect anterior"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  
+                  <div className="w-40 h-40 flex items-center justify-center bg-white rounded-lg overflow-hidden shadow-sm">
+                    {aspectIndex === -1 ? (
+                      <img 
+                        src="/images/question_mark.png"
+                        alt="Selectează un aspect"
+                        className="max-w-full max-h-full object-contain opacity-50 p-4"
+                      />
+                    ) : aspects.length > 0 && (
+                      <img 
+                        src={aspects[aspectIndex].image} 
+                        alt={aspects[aspectIndex].name}
+                        className="max-w-full max-h-full object-contain"
+                        onError={handleImageError}
+                      />
+                    )}
                   </div>
+                  
+                  <button 
+                    onClick={nextAspect}
+                    className="p-3 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                    aria-label="Aspect următor"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
                 </div>
-              )}
+                <p className="text-center mt-4 font-medium text-gray-700">
+                  {aspectIndex === -1 ? 'Selectează un aspect' : (aspects.length > 0 ? aspects[aspectIndex].name : 'Se încarcă...')}
+                </p>
+              </div>
 
-              {featherColors.length > 0 && (
-                <div className="mb-8">
-                  <h2 className="text-lg font-semibold mb-3 text-gray-700">Culoarea penajului</h2>
-                  <div className="flex items-center justify-between">
-                    <button onClick={prevFeatherColor} className="p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors">←</button>
-                    <button
-                      onClick={() => setFeatherColor(featherColor === featherColors[featherColorIndex].name ? '' : featherColors[featherColorIndex].name)}
-                      className={`p-3 ${featherColor === featherColors[featherColorIndex].name ? 'bg-blue-200' : 'bg-gray-100'} rounded-lg hover:bg-blue-100 transition-colors`}
-                    >
-                      {featherColors[featherColorIndex].image ? (
-                        <img 
-                          src={featherColors[featherColorIndex].image} 
-                          alt={featherColors[featherColorIndex].name} 
-                          className="w-20 h-20 mx-auto object-contain"
-                          onError={handleImageError}
-                        />
-                      ) : (
-                        <div className="w-20 h-20 mx-auto flex items-center justify-center bg-gray-200">
-                          <span className="text-gray-500">Fără imagine</span>
-                        </div>
-                      )}
-                      <span className="text-sm text-gray-600 mt-2 block text-center">{featherColors[featherColorIndex].name}</span>
-                    </button>
-                    <button onClick={nextFeatherColor} className="p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors">→</button>
+              {/* Culoare penaj */}
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h2 className="text-xl font-semibold mb-4 text-gray-700 text-center">Culoare penaj</h2>
+                <div className="flex items-center justify-between">
+                  <button 
+                    onClick={prevFeatherColor}
+                    className="p-3 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                    aria-label="Culoare anterioară"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  
+                  <div className="w-40 h-40 flex items-center justify-center bg-white rounded-lg overflow-hidden shadow-sm">
+                    {featherColorIndex === -1 ? (
+                      <img 
+                        src="/images/question_mark.png"
+                        alt="Selectează o culoare"
+                        className="max-w-full max-h-full object-contain opacity-50 p-4"
+                      />
+                    ) : featherColors.length > 0 && (
+                      <img 
+                        src={featherColors[featherColorIndex].image} 
+                        alt={featherColors[featherColorIndex].name}
+                        className="max-w-full max-h-full object-contain"
+                        onError={handleImageError}
+                      />
+                    )}
                   </div>
+                  
+                  <button 
+                    onClick={nextFeatherColor}
+                    className="p-3 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                    aria-label="Culoare următoare"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
                 </div>
-              )}
+                <p className="text-center mt-4 font-medium text-gray-700">
+                  {featherColorIndex === -1 ? 'Selectează o culoare' : (featherColors.length > 0 ? featherColors[featherColorIndex].name : 'Se încarcă...')}
+                </p>
+              </div>
 
-              {habitats.length > 0 && (
-                <div className="mb-8">
-                  <h2 className="text-lg font-semibold mb-3 text-gray-700">Habitat</h2>
-                  <div className="flex items-center justify-between">
-                    <button onClick={prevHabitat} className="p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors">←</button>
-                    <button
-                      onClick={() => setHabitat(habitat === habitats[habitatIndex].name ? '' : habitats[habitatIndex].name)}
-                      className={`p-3 ${habitat === habitats[habitatIndex].name ? 'bg-blue-200' : 'bg-gray-100'} rounded-lg hover:bg-blue-100 transition-colors`}
-                    >
-                      {habitats[habitatIndex].image ? (
-                        <img 
-                          src={habitats[habitatIndex].image} 
-                          alt={habitats[habitatIndex].name} 
-                          className="w-20 h-20 mx-auto object-contain"
-                          onError={handleImageError}
-                        />
-                      ) : (
-                        <div className="w-20 h-20 mx-auto flex items-center justify-center bg-gray-200">
-                          <span className="text-gray-500">Fără imagine</span>
-                        </div>
-                      )}
-                      <span className="text-sm text-gray-600 mt-2 block text-center">{habitats[habitatIndex].name}</span>
-                    </button>
-                    <button onClick={nextHabitat} className="p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors">→</button>
+              {/* Habitat */}
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h2 className="text-xl font-semibold mb-4 text-gray-700 text-center">Habitat</h2>
+                <div className="flex items-center justify-between">
+                  <button 
+                    onClick={prevHabitat}
+                    className="p-3 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                    aria-label="Habitat anterior"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  
+                  <div className="w-40 h-40 flex items-center justify-center bg-white rounded-lg overflow-hidden shadow-sm">
+                    {habitatIndex === -1 ? (
+                      <img 
+                        src="/images/question_mark.png"
+                        alt="Selectează un habitat"
+                        className="max-w-full max-h-full object-contain opacity-50 p-4"
+                      />
+                    ) : habitats.length > 0 && (
+                      <img 
+                        src={habitats[habitatIndex].image} 
+                        alt={habitats[habitatIndex].name}
+                        className="max-w-full max-h-full object-contain"
+                        onError={handleImageError}
+                      />
+                    )}
                   </div>
+                  
+                  <button 
+                    onClick={nextHabitat}
+                    className="p-3 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                    aria-label="Habitat următor"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
                 </div>
-              )}
+                <p className="text-center mt-4 font-medium text-gray-700">
+                  {habitatIndex === -1 ? 'Selectează un habitat' : (habitats.length > 0 ? habitats[habitatIndex].name : 'Se încarcă...')}
+                </p>
+              </div>
+            </div>
+          )}
 
+          {/* Buton de rezultate */}
+          {!loading && (
+            <div className="mt-8">
               <button
                 onClick={goToEncyclopedia}
-                className="w-full bg-blue-500 text-white py-3 rounded-full text-lg font-semibold hover:bg-blue-600 transition-colors"
-                disabled={results.length === 0 || loadingResults}
+                className="w-full bg-blue-500 text-white py-4 rounded-full text-xl font-semibold hover:bg-blue-600 transition-colors shadow-md"
+                disabled={loadingResults}
               >
                 {loadingResults ? 'Se încarcă...' : `${results.length} Rezultate`}
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>

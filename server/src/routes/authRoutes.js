@@ -16,4 +16,23 @@ router.get('/me', authMiddleware.authenticate, authMiddleware.requireUser, authC
 // Rută pentru deconectare
 router.post('/logout', authController.logout);
 
+// Rută pentru încărcarea imaginii de profil
+router.post('/upload-profile-image', 
+  authMiddleware.authenticate, 
+  authMiddleware.requireUser, 
+  authController.uploadProfileImage
+);
+
+// Rută pentru actualizarea profilului
+router.put('/profile', 
+  authMiddleware.authenticate, 
+  authMiddleware.requireUser, 
+  authController.updateProfile
+);
+
+// Rute pentru resetarea parolei
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/verify-reset-code', authController.verifyResetCode);
+router.post('/reset-password', authController.resetPassword);
+
 module.exports = router;

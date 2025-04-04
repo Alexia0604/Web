@@ -7,33 +7,48 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    trim: true
+    trim: true,
+    minlength: 3
   },
   email: {
     type: String,
     required: true,
     unique: true,
-    lowercase: true,
-    trim: true
+    trim: true,
+    lowercase: true
   },
   password: {
     type: String,
     required: true,
     minlength: 6
   },
+  profileImage: {
+    type: String,
+    default: null
+  },
   role: {
     type: String,
-    enum: ['user', 'admin', 'guest'],
+    enum: ['user', 'admin'],
     default: 'user'
   },
   favorites: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Bird'
   }],
+  resetCode: {
+    type: String,
+    default: null
+  },
+  resetCodeExpires: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
   }
+}, {
+  timestamps: true
 });
 
 // Criptare parola înainte de salvare
@@ -49,9 +64,13 @@ UserSchema.pre('save', async function(next) {
   }
 });
 
-// Metodă pentru verificarea parolei
+// Metodă pentru compararea parolei
 UserSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+  try {
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    throw error;
+  }
 };
 
 const User = mongoose.model('User', UserSchema);
