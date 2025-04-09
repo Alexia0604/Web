@@ -27,14 +27,35 @@ const Login = () => {
         setFormError('');
         
         try {
-            await login({
+            const response = await login({
                 email: formData.email,
-                password: formData.password
+                password: formData.password,
+                rememberMe: formData.rememberMe
             });
             
-            // Redirecționare către pagina principală după autentificare
-            navigate('/');
+            console.log('Login response:', response);
+            
+            // Verificăm rolul utilizatorului
+            if (response.user) {
+                console.log('User role from login:', response.user.role);
+                
+                // Așteptăm puțin să se actualizeze starea
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Redirecționăm în funcție de rol
+                if (response.user.role === 'admin') {
+                    console.log('Redirecting to admin dashboard');
+                    navigate('/admin');
+                } else {
+                    console.log('Redirecting to home page');
+                    navigate('/');
+                }
+            } else {
+                console.error('No user object in response:', response);
+                setFormError('Eroare de autentificare: informații utilizator lipsă');
+            }
         } catch (error) {
+            console.error('Login error:', error);
             setFormError(error.response?.data?.message || 'Eroare la autentificare. Verificați datele și încercați din nou.');
         }
     };

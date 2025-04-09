@@ -5,32 +5,27 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
 
 // Configurare multer pentru încărcarea imaginilor
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'public/uploads/profile-images')
+    cb(null, 'client/public/Images')
   },
   filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-    cb(null, uniqueSuffix + path.extname(file.originalname))
+    // Păstrăm numele original al fișierului, fără nicio modificare
+    cb(null, file.originalname)
   }
 });
 
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: Infinity // Fără limită
   },
   fileFilter: (req, file, cb) => {
-    const filetypes = /jpeg|jpg|png|gif/;
-    const mimetype = filetypes.test(file.mimetype);
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-
-    if (mimetype && extname) {
-      return cb(null, true);
-    }
-    cb(new Error('Doar imaginile sunt permise!'));
+    // Acceptăm orice tip de imagine
+    cb(null, true);
   }
 }).single('profileImage');
 
@@ -43,7 +38,7 @@ const generateToken = (user) => {
       role: user.role 
     }, 
     process.env.JWT_SECRET, 
-    { expiresIn: '24h' }
+    { expiresIn: '7d' }
   );
 };
 
@@ -68,8 +63,10 @@ exports.register = async (req, res) => {
     // Trimitere token în cookie
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 24 * 60 * 60 * 1000 // 24 ore
+      secure: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     // Răspuns cu date utilizator (fără parolă)
@@ -78,10 +75,10 @@ exports.register = async (req, res) => {
       username: user.username,
       email: user.email,
       role: user.role,
-      profileImage: user.profileImage ? `http://localhost:5000${user.profileImage}` : null
+      profileImage: user.profileImage ? `http://localhost:5000/Images/${user.profileImage}` : null
     };
 
-    res.status(201).json({ user: userResponse, token });
+    res.status(201).json({ success: true, user: userResponse, token });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Eroare server', error: error.message });
@@ -93,58 +90,70 @@ exports.login = async (req, res) => {
   try {
     const { email, password, rememberMe } = req.body;
 
-    // Verificare date necesare
     if (!email || !password) {
       return res.status(400).json({ 
-        message: 'Email și parola sunt obligatorii',
-        received: { email: email ? 'present' : 'missing', password: password ? 'present' : 'missing' }
+        message: 'Email și parola sunt obligatorii'
       });
     }
 
-    // Căutare utilizator după email
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: 'Credențiale invalide' });
     }
 
-    // Verificare parolă
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Credențiale invalide' });
     }
 
-    // Generare token
-    const token = generateToken(user);
+    const token = jwt.sign(
+      { 
+        _id: user._id, 
+        username: user.username, 
+        role: user.role 
+      }, 
+      process.env.JWT_SECRET,
+      { expiresIn: rememberMe ? '30d' : '24h' }
+    );
 
-    // Setăm durata cookie-ului în funcție de opțiunea rememberMe
-    const cookieOptions = {
-      httpOnly: false, // Permitem accesul din JavaScript
-      secure: false, // Setăm la false pentru development
-      maxAge: rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000, // 30 zile sau 24 ore
-      sameSite: 'strict',
-      path: '/'
-    };
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: false, // Schimbă la true în producție cu HTTPS
+      sameSite: 'lax',
+      path: '/',
+      maxAge: rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000,
+    });
 
-    // Trimitere token în cookie și localStorage pentru persistență
-    res.cookie('token', token, cookieOptions);
+    let profileImageUrl = null;
+    if (user.profileImage) {
+      // Verificăm dacă profileImage este în formatul vechi (începe cu /)
+      if (user.profileImage.startsWith('/uploads/')) {
+        // Format vechi: /uploads/profile-images/filename.jpg
+        const parts = user.profileImage.split('/');
+        const filename = parts[parts.length - 1];
+        profileImageUrl = `http://localhost:5000/Images/${filename}`;
+      } else if (user.profileImage.includes('/')) {
+        // Dacă conține slash dar nu e formatul vechi, folosim așa cum e
+        profileImageUrl = `http://localhost:5000${user.profileImage}`;
+      } else {
+        // Format nou: doar numele fișierului
+        profileImageUrl = `http://localhost:5000/Images/${user.profileImage}`;
+      }
+    }
 
-    // Răspuns cu date utilizator (fără parolă)
     const userResponse = {
       id: user._id,
       username: user.username,
       email: user.email,
       role: user.role,
-      profileImage: user.profileImage ? `http://localhost:5000${user.profileImage}` : null
+      profileImage: profileImageUrl
     };
 
     res.json({ 
       success: true, 
-      user: userResponse, 
-      token,
-      expiresIn: cookieOptions.maxAge 
+      user: userResponse
     });
   } catch (error) {
-    console.error('Eroare la autentificare:', error);
     res.status(500).json({ message: 'Eroare server', error: error.message });
   }
 };
@@ -152,35 +161,74 @@ exports.login = async (req, res) => {
 // Verificare stare autentificare
 exports.getCurrentUser = async (req, res) => {
   try {
-    // Verificăm dacă utilizatorul este autentificat
+    console.log('Request to /auth/me - Token payload:', req.user);
+
     if (!req.user || !req.user._id) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Nu sunteți autentificat' 
+      console.log('No user in request or invalid token');
+      return res.status(401).json({
+        success: false,
+        message: 'Nu sunteți autentificat',
       });
     }
 
-    const user = await User.findById(req.user._id).select('-password');
+    const userId = req.user._id;
+    console.log('Looking for user with ID:', userId);
+
+    // Verifică dacă ID-ul este un ObjectId valid
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log('Invalid ObjectId:', userId);
+      return res.status(400).json({
+        success: false,
+        message: 'ID utilizator invalid',
+      });
+    }
+
+    const objectId = new mongoose.Types.ObjectId(userId);
+    const user = await User.findById(objectId);
+
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Utilizator negăsit' 
+      console.log('User not found in database for ID:', userId);
+      return res.status(404).json({
+        success: false,
+        message: 'Utilizator negăsit',
       });
     }
 
-    // Convertim user-ul în obiect simplu și adăugăm URL-ul complet pentru imagine
     const userData = user.toObject();
     if (userData.profileImage) {
-      userData.profileImage = `http://localhost:5000${userData.profileImage}`;
+      // Verificăm dacă profileImage este în formatul vechi (începe cu /)
+      if (userData.profileImage.startsWith('/uploads/')) {
+        // Format vechi: /uploads/profile-images/filename.jpg
+        const parts = userData.profileImage.split('/');
+        const filename = parts[parts.length - 1];
+        // Copiem fișierul în noul format dacă există
+        try {
+          userData.profileImage = `http://localhost:5000/Images/${filename}`;
+        } catch (err) {
+          console.error('Error handling profile image:', err);
+        }
+      } else if (userData.profileImage.includes('/')) {
+        // Dacă conține slash dar nu e formatul vechi, folosim așa cum e
+        userData.profileImage = `http://localhost:5000${userData.profileImage}`;
+      } else {
+        // Format nou: doar numele fișierului
+        userData.profileImage = `http://localhost:5000/Images/${userData.profileImage}`;
+      }
     }
 
-    res.json({ success: true, user: userData });
+    delete userData.password;
+    delete userData.resetCode;
+    delete userData.resetCodeExpires;
+
+    console.log('Returning user data:', userData);
+
+    return res.json({ success: true, user: userData });
   } catch (error) {
-    console.error('Eroare la obținerea utilizatorului curent:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Eroare server', 
-      error: error.message 
+    console.error('Error in getCurrentUser:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Eroare server',
+      error: error.message,
     });
   }
 };
@@ -188,7 +236,32 @@ exports.getCurrentUser = async (req, res) => {
 // Deconectare utilizator
 exports.logout = (req, res) => {
   res.clearCookie('token');
-  res.json({ message: 'Deconectat cu succes' });
+  res.json({ success: true, message: 'Deconectat cu succes' });
+};
+
+// Reîmprospătare token
+exports.refreshToken = (req, res) => {
+  try {
+    // Dacă middleware-ul de autentificare a trecut, avem deja req.user
+    const token = generateToken(req.user);
+
+    // Setăm cookie-ul cu noul token
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    res.json({ success: true, message: 'Token reîmprospătat cu succes', token });
+  } catch (error) {
+    console.error('Eroare la reîmprospătarea token-ului:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Eroare la reîmprospătarea token-ului' 
+    });
+  }
 };
 
 // Încărcare imagine profil
@@ -203,23 +276,23 @@ exports.uploadProfileImage = async (req, res) => {
     }
 
     try {
-      const imageUrl = `/uploads/profile-images/${req.file.filename}`;
-      const fullImageUrl = `http://localhost:5000${imageUrl}`;
+      // Folosim doar numele fișierului, fără cale
+      const filename = req.file.filename;
+      const fullImageUrl = `http://localhost:5000/Images/${filename}`;
       
       // Actualizare utilizator cu noua imagine
       const user = await User.findByIdAndUpdate(
-        req.user.id,
-        { profileImage: imageUrl },
+        req.user._id,
+        { profileImage: filename }, // Stocăm doar numele fișierului
         { new: true }
       ).select('-password');
 
       if (!user) {
-        // Ștergere fișier dacă utilizatorul nu există
-        await fs.unlink(req.file.path);
         return res.status(404).json({ message: 'Utilizator negăsit' });
       }
 
       res.json({ 
+        success: true,
         message: 'Imagine încărcată cu succes',
         imageUrl: fullImageUrl,
         user: {
@@ -228,10 +301,6 @@ exports.uploadProfileImage = async (req, res) => {
         }
       });
     } catch (error) {
-      // Ștergere fișier în caz de eroare
-      if (req.file) {
-        await fs.unlink(req.file.path).catch(console.error);
-      }
       res.status(500).json({ message: 'Eroare la încărcarea imaginii', error: error.message });
     }
   });
@@ -241,7 +310,7 @@ exports.uploadProfileImage = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const { username, currentPassword, newPassword } = req.body;
-    const userId = req.user._id; // Folosim _id în loc de id
+    const userId = req.user._id;
 
     // Găsim utilizatorul
     const user = await User.findById(userId);
@@ -320,19 +389,23 @@ exports.updateProfile = async (req, res) => {
     // Trimitem noul token în cookie
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 24 * 60 * 60 * 1000 // 24 ore
+      secure: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     // Adăugăm URL-ul complet pentru imagine
     const userResponse = updatedUser.toObject();
     if (userResponse.profileImage) {
-      userResponse.profileImage = `http://localhost:5000${userResponse.profileImage}`;
+      userResponse.profileImage = `http://localhost:5000/Images/${userResponse.profileImage}`;
     }
 
     res.json({
+      success: true,
       message: 'Profil actualizat cu succes',
-      user: userResponse
+      user: userResponse,
+      token
     });
   } catch (error) {
     console.error('Eroare la actualizarea profilului:', error);
@@ -362,7 +435,7 @@ exports.forgotPassword = async (req, res) => {
     // În dezvoltare, afișăm codul în consolă
     console.log('Cod de resetare pentru', email, ':', resetCode);
 
-    res.json({ message: 'Cod de resetare generat cu succes' });
+    res.json({ success: true, message: 'Cod de resetare generat cu succes' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Eroare server', error: error.message });

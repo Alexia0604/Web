@@ -183,11 +183,15 @@ router.get('/:id', auth.authenticate, async (req, res) => {
 // Rute doar pentru administratori
 router.post('/', auth.authenticate, auth.requireAdmin, async (req, res) => {
   try {
-    const newBird = new Bird(req.body);
+    const birdData = {
+      ...req.body,
+      createdAt: new Date() // Asigurăm că avem o dată de creare corectă
+    };
+    const newBird = new Bird(birdData);
     const savedBird = await newBird.save();
+    
     res.status(201).json(savedBird);
   } catch (error) {
-    console.error('Eroare la crearea păsării:', error);
     res.status(500).json({ message: 'Eroare server', error: error.message });
   }
 });

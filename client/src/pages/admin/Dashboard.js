@@ -3,29 +3,125 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [systemStats, setSystemStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { user } = useAuth();
 
   useEffect(() => {
-    const fetchDashboardStats = async () => {
+    const fetchData = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/admin/dashboard', {
-          withCredentials: true
-        });
-        setStats(res.data);
+        const [dashboardRes, activityRes, statsRes] = await Promise.all([
+          axios.get('http://localhost:5000/api/admin/dashboard', {
+            withCredentials: true
+          }),
+          axios.get('http://localhost:5000/api/admin/recent-activity', {
+            withCredentials: true
+          }),
+          axios.get('http://localhost:5000/api/admin/system-stats', {
+            withCredentials: true
+          })
+        ]);
+
+        setStats(dashboardRes.data);
+        setActivities(activityRes.data.activities);
+        setSystemStats(statsRes.data.stats);
         setLoading(false);
       } catch (err) {
-        setError('Eroare la încărcarea statisticilor');
+        setError('Eroare la încărcarea datelor');
         setLoading(false);
       }
     };
 
-    fetchDashboardStats();
+    fetchData();
   }, []);
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    return date.toLocaleString('ro-RO');
+  };
+
+  const getActivityMessage = (activity) => {
+    switch (activity.type) {
+      case 'USER_REGISTERED':
+        return `Utilizatorul ${activity.data.username} s-a înregistrat`;
+      case 'BIRD_ADDED':
+        return `A fost adăugată pasărea ${activity.data.birdName}`;
+      case 'FAVORITE_ADDED':
+        return `${activity.data.username} a adăugat ${activity.data.birdName} la favorite`;
+      case 'QUIZ_COMPLETED':
+        return `${activity.data.username} a completat un quiz cu scorul ${activity.data.score}`;
+      default:
+        return 'Activitate necunoscută';
+    }
+  };
+
+  const chartData = {
+    labels: systemStats?.dailyUsers?.map(item => item._id) || [],
+    datasets: [
+      {
+        label: 'Utilizatori noi',
+        data: systemStats?.dailyUsers?.map(item => item.count) || [],
+        borderColor: 'rgb(75, 192, 192)',
+        tension: 0.1
+      },
+      {
+        label: 'Păsări noi',
+        data: systemStats?.dailyBirds?.map(item => item.count) || [],
+        borderColor: 'rgb(255, 99, 132)',
+        tension: 0.1
+      },
+      {
+        label: 'Quiz-uri completate',
+        data: systemStats?.dailyQuizzes?.map(item => item.count) || [],
+        borderColor: 'rgb(153, 102, 255)',
+        tension: 0.1
+      }
+    ]
+  };
+
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+      title: {
+        display: true,
+        text: 'Activitate zilnică în ultimele 30 de zile'
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -105,15 +201,20 @@ const AdminDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-lg font-semibold mb-4">Activitate recentă</h2>
-          <div className="text-center py-8 text-gray-500">
-            Funcționalitate în dezvoltare
+          <div className="space-y-4">
+            {activities.map((activity, index) => (
+              <div key={index} className="border-b pb-2">
+                <p className="text-sm text-gray-600">{formatTimestamp(activity.timestamp)}</p>
+                <p className="text-gray-800">{getActivityMessage(activity)}</p>
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-lg font-semibold mb-4">Statistici sistem</h2>
-          <div className="text-center py-8 text-gray-500">
-            Funcționalitate în dezvoltare
+          <div className="h-[400px]">
+            <Line data={chartData} options={chartOptions} />
           </div>
         </div>
       </div>

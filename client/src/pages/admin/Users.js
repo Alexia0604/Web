@@ -1,6 +1,7 @@
 // src/pages/admin/Users.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);
@@ -82,7 +83,29 @@ const AdminUsers = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Gestionare utilizatori</h1>
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold">Gestionare utilizatori</h1>
+        <Link 
+          to="/admin" 
+          className="flex items-center text-indigo-600 hover:text-indigo-800"
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className="h-5 w-5 mr-1" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z" 
+            />
+          </svg>
+          Înapoi la panou
+        </Link>
+      </div>
 
       {successMessage && (
         <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">
@@ -106,7 +129,7 @@ const AdminUsers = () => {
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-white rounded-lg shadow-md overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -119,9 +142,6 @@ const AdminUsers = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Rol
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Data înregistrării
-              </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Acțiuni
               </th>
@@ -130,7 +150,7 @@ const AdminUsers = () => {
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
                   Nu s-au găsit utilizatori care să corespundă căutării
                 </td>
               </tr>
@@ -138,38 +158,65 @@ const AdminUsers = () => {
               filteredUsers.map(user => (
                 <tr key={user._id}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{user.username}</div>
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0">
+                        {user.profileImage ? (
+                          <img
+                            src={`http://localhost:5000/uploads/profile-images/${user.profileImage}`}
+                            alt={user.username}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              const placeholder = e.target.parentElement.nextElementSibling;
+                              if (placeholder) {
+                                placeholder.style.display = 'flex';
+                              }
+                            }}
+                          />
+                        ) : null}
+                      </div>
+                      <div 
+                        className="h-10 w-10 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center"
+                        style={{ display: user.profileImage ? 'none' : 'flex' }}
+                      >
+                        <span className="text-gray-500 text-xs">
+                          {user.username.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="ml-3">
+                        <div className="text-sm font-medium text-gray-900">{user.username}</div>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{user.email}</div>
+                    <div className="text-sm text-gray-900">{user.email}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       user.role === 'admin' 
-                        ? 'bg-indigo-100 text-indigo-800' 
-                        : 'bg-green-100 text-green-800'
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {user.role === 'admin' ? 'Administrator' : 'Utilizator'}
+                      {user.role}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(user.createdAt).toLocaleDateString('ro-RO')}
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {user.role !== 'admin' && (
+                    <div className="flex justify-end gap-4">
+                      {user.role !== 'admin' && (
+                        <button
+                          onClick={() => handlePromoteToAdmin(user._id)}
+                          className="text-indigo-600 hover:text-indigo-900"
+                        >
+                          Fă admin
+                        </button>
+                      )}
                       <button
-                        onClick={() => handlePromoteToAdmin(user._id)}
-                        className="text-indigo-600 hover:text-indigo-900 mr-3"
+                        onClick={() => handleDeleteUser(user._id)}
+                        className="text-red-600 hover:text-red-900"
                       >
-                        Promovează la admin
+                        Șterge
                       </button>
-                    )}
-                    <button
-                      onClick={() => handleDeleteUser(user._id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Șterge
-                    </button>
+                    </div>
                   </td>
                 </tr>
               ))

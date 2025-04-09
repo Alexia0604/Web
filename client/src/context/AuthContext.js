@@ -1,20 +1,9 @@
-// src/context/AuthContext.js
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 
-// Crearea contextului de autentificare
 const AuthContext = createContext();
 
-// URL de bază pentru API
 const API_URL = 'http://localhost:5000/api';
-
-// Funcție pentru obținerea unui cookie după nume
-const getCookie = (name) => {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop().split(';').shift();
-  return null;
-};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -22,176 +11,126 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Configurare axios pentru a include cookie-urile în cereri
   axios.defaults.withCredentials = true;
 
-  const checkLoggedIn = async () => {
+  const checkLoggedIn = async (retryCount = 0, maxRetries = 2) => {
     try {
-      setLoading(true);
-      // Verificăm mai întâi cookie-ul, apoi localStorage
-      let token = getCookie('token') || localStorage.getItem('token');
-      console.log('Verificare token:', token); // Debug
+      console.log('Checking authentication status...');
       
-      if (!token) {
-        setIsAuthenticated(false);
-        setUser(null);
-        setLoading(false);
-        return;
-      }
-
       const response = await axios.get(`${API_URL}/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        withCredentials: true
+        withCredentials: true,
       });
 
-      console.log('Răspuns verificare autentificare:', response.data); // Debug
+      console.log('Response from /auth/me:', response.data);
 
       if (response.data.success && response.data.user) {
+        const userData = response.data.user;
+        setUser(userData);
         setIsAuthenticated(true);
-        setUser(response.data.user);
+        console.log('User authenticated successfully:', userData);
       } else {
-        setIsAuthenticated(false);
+        console.log('No valid user data in response');
         setUser(null);
-        localStorage.removeItem('token');
+        setIsAuthenticated(false);
       }
     } catch (error) {
-      console.error('Eroare la verificarea autentificării:', error);
-      setIsAuthenticated(false);
+      console.error('Error checking auth status:', error.response?.data || error.message);
+      console.error('Error status:', error.response?.status);
+      if (error.response?.status === 401 && retryCount < maxRetries) {
+        console.log(`Retrying auth check (${retryCount + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return checkLoggedIn(retryCount + 1, maxRetries);
+      }
+      if (error.response?.status === 404) {
+        console.log('User not found, clearing auth state');
+        setUser(null);
+        setIsAuthenticated(false);
+        // Opțional: șterge cookie-ul din browser
+        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+      }
       setUser(null);
-      localStorage.removeItem('token');
+      setIsAuthenticated(false);
     } finally {
       setLoading(false);
     }
   };
 
-  // Verifică autentificarea la încărcarea aplicației
   useEffect(() => {
-    const token = getCookie('token');
-    console.log('Token la încărcare:', token); // Debug
-    if (token) {
-      checkLoggedIn();
-    } else {
-      setLoading(false);
-    }
+    console.log('Initial auth check on mount');
+    checkLoggedIn();
   }, []);
 
-  // Monitorizează schimbările în cookie
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const token = getCookie('token');
-      if (!token && isAuthenticated) {
-        setIsAuthenticated(false);
-        setUser(null);
-      } else if (token && !isAuthenticated) {
-        checkLoggedIn();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [isAuthenticated]);
-
-  // Funcție pentru înregistrare
-  const register = async (formData) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await axios.post(`${API_URL}/auth/register`, formData);
-      if (res.data.user) {
-        setUser(res.data.user);
-        setIsAuthenticated(true);
-      }
-      return res.data;
-    } catch (err) {
-      setError(err.response?.data?.message || 'Eroare la înregistrare');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Funcție pentru autentificare
   const login = async (formData) => {
     try {
       setLoading(true);
       setError(null);
-      console.log('Încercare autentificare cu:', formData); // Debug
-      const res = await axios.post(`${API_URL}/auth/login`, {
-        email: formData.email,
-        password: formData.password,
-        rememberMe: formData.rememberMe
-      }, {
-        withCredentials: true
+
+      const res = await axios.post(`${API_URL}/auth/login`, formData, {
+        withCredentials: true,
       });
-      
-      console.log('Răspuns autentificare:', res.data); // Debug
-      
+
+      console.log('Login response:', res.data);
+
       if (res.data.success && res.data.user) {
-        // Salvăm token-ul în localStorage pentru persistență
-        localStorage.setItem('token', res.data.token);
         setUser(res.data.user);
         setIsAuthenticated(true);
-        console.log('Autentificare reușită:', res.data.user);
+        return res.data;
       } else {
-        throw new Error('Răspuns invalid de la server');
+        throw new Error('Login failed: No user data returned');
       }
-      
-      return res.data;
     } catch (err) {
-      console.error('Eroare la autentificare:', err); // Debug
+      console.error('Login error:', err.response?.data || err.message);
       setError(err.response?.data?.message || 'Eroare la autentificare');
-      setIsAuthenticated(false);
       setUser(null);
+      setIsAuthenticated(false);
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  // Funcție pentru deconectare
   const logout = async () => {
     try {
-      setLoading(true);
-      await axios.post(`${API_URL}/auth/logout`, {}, {
-        withCredentials: true
-      });
+      await axios.post(`${API_URL}/auth/logout`, {}, { withCredentials: true });
       setUser(null);
       setIsAuthenticated(false);
+      setError(null);
+      console.log('User logged out successfully');
     } catch (err) {
+      console.error('Logout error:', err.response?.data || err.message);
       setError(err.response?.data?.message || 'Eroare la deconectare');
-      throw err;
-    } finally {
-      setLoading(false);
     }
   };
 
-  // Funcție pentru actualizarea imaginii de profil
   const updateProfileImage = async (imageUrl) => {
     if (user && user.role !== 'guest') {
-      setUser(prev => ({
+      setUser((prev) => ({
         ...prev,
-        profileImage: imageUrl
+        profileImage: imageUrl,
       }));
     }
   };
 
-  // Verificare permisiuni bazate pe rol
   const hasPermission = (requiredRole) => {
+    console.log('Checking permission - user:', user);
+    console.log('Required role:', requiredRole);
+
     if (!user) return false;
-    
+
     if (requiredRole === 'admin') {
       return user.role === 'admin';
     }
-    
+
     if (requiredRole === 'user') {
       return user.role === 'user' || user.role === 'admin';
     }
-    
-    // Guest - toți utilizatorii au acces
-    return true;
+
+    return true; // Guest access
   };
+
+  useEffect(() => {
+    console.log('Auth state updated:', { user, isAuthenticated, loading });
+  }, [user, isAuthenticated, loading]);
 
   return (
     <AuthContext.Provider
@@ -199,14 +138,14 @@ export const AuthProvider = ({ children }) => {
         user,
         loading,
         error,
-        register,
         login,
         logout,
+        isAuthenticated,
+        isAdmin: user?.role === 'admin',
+        isGuest: !user,
         updateProfileImage,
         hasPermission,
-        isAuthenticated,
-        isAdmin: user && user.role === 'admin',
-        isGuest: !user || user.role === 'guest'
+        checkLoggedIn,
       }}
     >
       {children}
@@ -214,5 +153,10 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// Hook pentru utilizarea contextului de autentificare
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth trebuie folosit în interiorul unui AuthProvider');
+  }
+  return context;
+};

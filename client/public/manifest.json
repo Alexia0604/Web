@@ -1,11 +1,15 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
-  "icons": [
-    
-  ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
-}
+    "short_name": "BirdHub",
+    "name": "BirdHub - Bird Encyclopedia",
+    "icons": [
+      {
+        "src": "/Images/logo1.png",
+        "sizes": "27x27",
+        "type": "image/png"
+      }
+    ],
+    "start_url": "/",
+    "display": "standalone",
+    "theme_color": "#000000",
+    "background_color": "#ffffff"
+  }

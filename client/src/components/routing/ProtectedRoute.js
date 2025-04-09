@@ -18,7 +18,7 @@ export const PrivateRoute = ({ children }) => {
 
 // Rută protejată doar pentru administratori
 export const AdminRoute = ({ children }) => {
-  const { isAdmin, loading } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -27,5 +27,12 @@ export const AdminRoute = ({ children }) => {
     </div>;
   }
 
-  return isAdmin ? children : <Navigate to="/" state={{ from: location }} replace />;
+  // Verificăm dacă utilizatorul este autentificat și are rolul de admin
+  const hasAdminAccess = isAuthenticated && user && user.role === 'admin';
+  
+  console.log('AdminRoute - User:', user);
+  console.log('AdminRoute - isAuthenticated:', isAuthenticated);
+  console.log('AdminRoute - hasAdminAccess:', hasAdminAccess);
+  
+  return hasAdminAccess ? children : <Navigate to="/" state={{ from: location }} replace />;
 };

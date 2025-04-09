@@ -12,6 +12,8 @@ import Profile from './pages/user/Profile.js';
 import AdminDashboard from './pages/admin/Dashboard.js';
 import AdminUsers from './pages/admin/Users.js';
 import AdminBirds from './pages/admin/Birds.js';
+import AdminBirdAdd from './pages/admin/BirdAdd.js';
+import AdminUserAdd from './pages/admin/UserAdd.js';
 import NotFound from './pages/NotFound.js';
 import BirdQuizGame from './pages/BirdQuizGame.js';
 import QuizHistory from './pages/QuizHistory.js';
@@ -68,9 +70,19 @@ const AppRoutes = () => {
           <AdminUsers />
         </AdminRoute>
       } />
+      <Route path="/admin/users/add" element={
+        <AdminRoute>
+          <AdminUserAdd />
+        </AdminRoute>
+      } />
       <Route path="/admin/birds" element={
         <AdminRoute>
           <AdminBirds />
+        </AdminRoute>
+      } />
+      <Route path="/admin/birds/add" element={
+        <AdminRoute>
+          <AdminBirdAdd />
         </AdminRoute>
       } />
 

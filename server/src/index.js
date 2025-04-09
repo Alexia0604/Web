@@ -11,30 +11,46 @@ require('dotenv').config();
 const app = express();
 
 // Middleware
-app.use(express.json());
-app.use(cookieParser()); // Adăugăm middleware pentru cookie-uri
 app.use(cors({
   origin: 'http://localhost:3000',
-  credentials: true, // permite cookie-urile cross-origin
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
+  exposedHeaders: ['Set-Cookie'],
 }));
+app.use(express.json());
+app.use(cookieParser());
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 app.use(morgan('dev'));
 
+// Debug middleware pentru cookie-uri
+app.use((req, res, next) => {
+  console.log('Cookies received:', req.cookies);
+  console.log('Request URL:', req.url);
+  next();
+});
+
 // Servire fișiere statice
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
-app.use('/images', express.static(path.join(__dirname, '../public/images')));
+app.use('/Images', express.static(path.join(__dirname, '../../client/public/Images')));
 
-// Asigură-te că directorul pentru încărcări există
+// Asigură-te că directoarele pentru încărcări există
 const createUploadDirs = async () => {
   const uploadDir = path.join(__dirname, '../public/uploads/profile-images');
+  const imagesDir = path.join(__dirname, '../../client/public/Images');
+  
   try {
     await fs.access(uploadDir);
   } catch {
     await fs.mkdir(uploadDir, { recursive: true });
+  }
+  
+  try {
+    await fs.access(imagesDir);
+  } catch {
+    await fs.mkdir(imagesDir, { recursive: true });
   }
 };
 
@@ -59,7 +75,18 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/quiz', quizRoutes);
 
-// Gestionare erori
+// Rută de test pentru a verifica dacă serverul răspunde
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'Serverul funcționează!' });
+});
+
+// Gestionare erori pentru rute inexistente
+app.use((req, res, next) => {
+  console.log('Rută negăsită:', req.url);
+  res.status(404).json({ message: 'Ruta nu a fost găsită' });
+});
+
+// Gestionare erori generale
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Ceva nu a mers bine!');

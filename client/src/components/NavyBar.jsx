@@ -116,8 +116,12 @@ const NavyBar = () => {
     if (isAuthenticated) {
         menuItems = [...menuItems, ...authMenuItems];
         
-        if (isAdmin) {
+        // Verificare directă a rolului utilizatorului
+        if (user && user.role === 'admin') {
+            console.log('NavyBar: User is admin, adding admin menu items');
             menuItems = [...menuItems, ...adminMenuItems];
+        } else {
+            console.log('NavyBar: User is not admin', user);
         }
     }
     
