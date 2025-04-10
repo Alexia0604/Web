@@ -2,6 +2,139 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { getAllBirds, filterBirds } from '../services/birdService';
+
+// Hardcoded data for aspects
+const ASPECTS_DATA = [
+  {
+    "_id": "67f7d6c753563001b171c01d",
+    "title": "Bufnita",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294851/silueta_bufnita_mbesit.png"
+  },
+  {
+    "_id": "67f7d6c753563001b171c01e",
+    "title": "Pasare cantatoare",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294851/pasare_cantatoare_pq9bxr.webp"
+  },
+  {
+    "_id": "67f7d6c753563001b171c01f",
+    "title": "Cioara",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294850/silueta_cioara_zbx0oi.webp"
+  },
+  {
+    "_id": "67f7d6c753563001b171c020",
+    "title": "Rapitor",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294850/rapitor_zvky2o.png"
+  },
+  {
+    "_id": "67f7d6c753563001b171c021",
+    "title": "Barza",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294849/silueta_barza_me72os.png"
+  },
+  {
+    "_id": "67f7d6c753563001b171c022",
+    "title": "Rata",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294849/silueta_rata_zh5yoj.jpg"
+  },
+  {
+    "_id": "67f7d6c753563001b171c023",
+    "title": "Ciocanitoare",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294848/aspect_ciocanitoare_qhngt6.avif"
+  },
+  {
+    "_id": "67f7d6c753563001b171c024",
+    "title": "Porumbel",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294847/silueta_porumbel_hxvx0z.webp"
+  }
+];
+
+// Hardcoded data for feather colors
+const FEATHERS_DATA = [
+  {
+    "_id": "67f7d6db53563001b171c027",
+    "title": "Roz",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294675/roz_fce5tl.png"
+  },
+  {
+    "_id": "67f7d6db53563001b171c028",
+    "title": "Rosu",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294675/rosu_lb7vdd.png"
+  },
+  {
+    "_id": "67f7d6db53563001b171c029",
+    "title": "Maro deschis",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294675/maro_deschis_gtoifb.png"
+  },
+  {
+    "_id": "67f7d6db53563001b171c02a",
+    "title": "Portocaliu",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294674/portocaliu_v7lvng.png"
+  },
+  {
+    "_id": "67f7d6db53563001b171c02b",
+    "title": "Maro",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294674/maro_gja6jh.png"
+  },
+  {
+    "_id": "67f7d6db53563001b171c02c",
+    "title": "Negru",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294674/negru_gvx6ep.png"
+  },
+  {
+    "_id": "67f7d6db53563001b171c02d",
+    "title": "Albastru",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294673/albastru_z7pzcp.png"
+  },
+  {
+    "_id": "67f7d6db53563001b171c02e",
+    "title": "Gri",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294673/gri_fd2rw3.png"
+  },
+  {
+    "_id": "67f7d6db53563001b171c02f",
+    "title": "Alb",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294673/alb_csv9ca.png"
+  },
+  {
+    "_id": "67f7d6db53563001b171c030",
+    "title": "Galben",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294673/galben_dbnpw5.png"
+  },
+  {
+    "_id": "67f7d6db53563001b171c031",
+    "title": "Verde",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294672/verde_fz0nnh.png"
+  }
+];
+
+// Hardcoded data for habitats
+const HABITATS_DATA = [
+  {
+    "_id": "67f7d6ec53563001b171c034",
+    "title": "Localitate",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294910/localitate_bf5nkl.png"
+  },
+  {
+    "_id": "67f7d6ec53563001b171c035",
+    "title": "Arbori",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294910/arbori_cnib17.png"
+  },
+  {
+    "_id": "67f7d6ec53563001b171c036",
+    "title": "Camp",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294909/camp_gqdwid.png"
+  },
+  {
+    "_id": "67f7d6ec53563001b171c037",
+    "title": "Mal",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294909/mal_nbnf0j.png"
+  },
+  {
+    "_id": "67f7d6ec53563001b171c038",
+    "title": "Agricol",
+    "url": "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294908/agricol_nuiabj.png"
+  }
+];
 
 // Funcție pentru rezolvarea URL-urilor de imagini
 const resolveImageUrl = (imagePath) => {
@@ -26,14 +159,7 @@ const BirdFilter = () => {
   const [featherColorIndex, setFeatherColorIndex] = useState(-1);
   const [habitatIndex, setHabitatIndex] = useState(-1);
   
-  // State pentru opțiunile de filtrare din baza de date
-  const [aspects, setAspects] = useState([]);
-  const [featherColors, setFeatherColors] = useState([]);
-  const [habitats, setHabitats] = useState([]);
-  
   // State pentru loading
-  const [loading, setLoading] = useState(false);
-  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [loadingResults, setLoadingResults] = useState(false);
   const [error, setError] = useState(null);
 
@@ -41,61 +167,138 @@ const BirdFilter = () => {
   const loadAllBirds = useCallback(async () => {
     try {
       setLoadingResults(true);
-      const response = await axios.get(`${API_BASE_URL}/birds`, {
-        withCredentials: true
-      });
-      setResults(response.data.birds || []);
+      console.log("Loading all birds...");
+      
+      // Use birdService function instead of direct API call
+      const response = await getAllBirds();
+      console.log("API response:", response);
+      
+      // Update this to match the structure from birdService
+      const allBirds = response.birds || [];
+      console.log(`Found ${allBirds.length} birds`);
+      
+      setResults(allBirds);
+      setError(null);
     } catch (error) {
       console.error("Eroare la încărcarea păsărilor:", error);
       setError('Nu s-au putut încărca păsările.');
+      setResults([]);
     } finally {
       setLoadingResults(false);
     }
   }, []);
 
-  // Funcție pentru încărcarea opțiunilor de filtrare din backend
-  const loadFilterOptions = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/birds/filter-options`, {
-        withCredentials: true
-      });
-      
-      setAspects(response.data.aspects);
-      setFeatherColors(response.data.featherColors);
-      setHabitats(response.data.habitats);
-      
-      setFiltersLoaded(true);
-      setError(null);
-    } catch (error) {
-      console.error("Eroare la încărcarea opțiunilor de filtrare:", error);
-      setError('Nu s-au putut încărca opțiunile de filtrare.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Funcție pentru filtrarea păsărilor
-  const filterBirds = async () => {
-    if (!aspect && !featherColor && !habitat) {
-      setResults([]);
-      return;
-    }
-    
+  // Funcție pentru filtrarea manuală a păsărilor
+  const filterBirdsManually = async () => {
     try {
       setLoadingResults(true);
-      
-      // Construim parametrii pentru query
-      const params = {};
-      if (aspect) params.aspect = aspect;
-      if (featherColor) params.featherColor = featherColor;
-      if (habitat) params.habitat = habitat;
-      
-      const response = await axios.get(`${API_BASE_URL}/birds/filter`, { 
-        params,
-        withCredentials: true 
+      console.log("Starting manual filter with:", { 
+        aspect: aspectIndex >= 0 ? aspect : 'Not selected', 
+        featherColor: featherColorIndex >= 0 ? featherColor : 'Not selected', 
+        habitat: habitatIndex >= 0 ? habitat : 'Not selected' 
       });
-      setResults(response.data);
+      
+      // First, get all birds
+      const response = await getAllBirds();
+      const allBirds = response.birds || [];
+      console.log(`Loaded ${allBirds.length} birds for manual filtering`);
+      
+      // Now filter them manually based on the selected criteria
+      let filteredBirds = [...allBirds];
+      
+      // Filter by aspect if selected - USING IMAGE URL COMPARISON
+      if (aspectIndex >= 0 && aspect) {
+        // Get the image URL from our ASPECTS_DATA for this aspect
+        const aspectImageUrl = ASPECTS_DATA[aspectIndex].url;
+        console.log(`Filtering by aspect image URL: ${aspectImageUrl}`);
+        
+        filteredBirds = filteredBirds.filter(bird => {
+          if (!bird.aspects || !Array.isArray(bird.aspects)) return false;
+          
+          // Debug output for specific bird
+          if (bird.name === "Barză albă") {
+            console.log("Barză albă aspects:", JSON.stringify(bird.aspects));
+          }
+          
+          // For aspects, compare the image URL since there's no title/name
+          return bird.aspects.some(a => {
+            if (!a.image || !a.image.url) return false;
+            
+            // Check if the URLs match (ignoring protocol and query params)
+            const match = a.image.url.includes(aspectImageUrl) || 
+                         aspectImageUrl.includes(a.image.url);
+            
+            if (bird.name === "Barză albă" && match) {
+              console.log("Found match for Barză albă aspect!");
+            }
+            
+            return match;
+          });
+        });
+        console.log(`After aspect filter: ${filteredBirds.length} birds remaining`);
+      }
+      
+      // Filter by feather color if selected - USING IMAGE URL COMPARISON
+      if (featherColorIndex >= 0 && featherColor) {
+        // Get the image URL from our FEATHERS_DATA for this color
+        const featherImageUrl = FEATHERS_DATA[featherColorIndex].url;
+        console.log(`Filtering by feather color image URL: ${featherImageUrl}`);
+        
+        filteredBirds = filteredBirds.filter(bird => {
+          if (!bird.featherColors || !Array.isArray(bird.featherColors)) return false;
+          
+          // Debug output for specific bird
+          if (bird.name === "Barză albă") {
+            console.log("Barză albă featherColors:", JSON.stringify(bird.featherColors));
+          }
+          
+          // For featherColors, compare the image URL since there's no title/name
+          return bird.featherColors.some(fc => {
+            if (!fc.image || !fc.image.url) return false;
+            
+            // Check if the URLs match (ignoring protocol and query params)
+            const match = fc.image.url.includes(featherImageUrl) || 
+                         featherImageUrl.includes(fc.image.url);
+            
+            if (bird.name === "Barză albă" && match) {
+              console.log("Found match for Barză albă feather color!");
+            }
+            
+            return match;
+          });
+        });
+        console.log(`After feather color filter: ${filteredBirds.length} birds remaining`);
+      }
+      
+      // Filter by habitat if selected - USING NAME FIELD
+      if (habitatIndex >= 0 && habitat) {
+        console.log(`Filtering by habitat name: ${habitat}`);
+        
+        filteredBirds = filteredBirds.filter(bird => {
+          if (!bird.habitats || !Array.isArray(bird.habitats)) return false;
+          
+          // Debug output for specific bird
+          if (bird.name === "Barză albă") {
+            console.log("Barză albă habitats:", JSON.stringify(bird.habitats));
+          }
+          
+          // For habitats, we can use the name field
+          return bird.habitats.some(h => {
+            const match = h.name === habitat;
+            
+            if (bird.name === "Barză albă" && match) {
+              console.log("Found match for Barză albă habitat!");
+            }
+            
+            return match;
+          });
+        });
+        console.log(`After habitat filter: ${filteredBirds.length} birds remaining`);
+      }
+      
+      console.log(`Final results: ${filteredBirds.length} birds`);
+      setResults(filteredBirds);
+      setError(null);
     } catch (error) {
       console.error("Eroare la filtrarea păsărilor:", error);
       setError('Nu s-au putut filtra păsările.');
@@ -104,82 +307,100 @@ const BirdFilter = () => {
     }
   };
 
-  // Încărcăm toate păsările și opțiunile de filtrare la prima randare
+  // Încărcăm toate păsările la prima randare
   useEffect(() => {
-    loadFilterOptions();
     loadAllBirds();
-  }, [loadFilterOptions, loadAllBirds]);
+  }, [loadAllBirds]);
 
   // Actualizăm rezultatele doar când se schimbă filtrele
   useEffect(() => {
-    if (filtersLoaded && (aspect || featherColor || habitat)) {
-      filterBirds();
+    if (aspect || featherColor || habitat) {
+      filterBirdsManually();
+    } else {
+      // Dacă nu sunt filtre active, încărcăm toate păsările
+      loadAllBirds();
     }
-  }, [filterBirds, aspect, featherColor, habitat, filtersLoaded]);
+  }, [aspect, featherColor, habitat, loadAllBirds]);
 
   // Funcții pentru navigarea prin opțiuni
   const prevAspect = () => {
-    if (aspects.length > 0) {
-      const newIndex = aspectIndex <= 0 ? aspects.length - 1 : aspectIndex - 1;
+    if (ASPECTS_DATA.length > 0) {
+      const newIndex = aspectIndex <= 0 ? ASPECTS_DATA.length - 1 : aspectIndex - 1;
       setAspectIndex(newIndex);
-      setAspect(aspects[newIndex].name || '');
+      setAspect(ASPECTS_DATA[newIndex].title || '');
     }
   };
   
   const nextAspect = () => {
-    if (aspects.length > 0) {
-      const newIndex = aspectIndex >= aspects.length - 1 ? 0 : aspectIndex + 1;
+    if (ASPECTS_DATA.length > 0) {
+      const newIndex = aspectIndex >= ASPECTS_DATA.length - 1 ? 0 : aspectIndex + 1;
       setAspectIndex(newIndex);
-      setAspect(aspects[newIndex].name || '');
+      setAspect(ASPECTS_DATA[newIndex].title || '');
     }
   };
   
   const prevFeatherColor = () => {
-    if (featherColors.length > 0) {
-      const newIndex = featherColorIndex <= 0 ? featherColors.length - 1 : featherColorIndex - 1;
+    if (FEATHERS_DATA.length > 0) {
+      const newIndex = featherColorIndex <= 0 ? FEATHERS_DATA.length - 1 : featherColorIndex - 1;
       setFeatherColorIndex(newIndex);
-      setFeatherColor(featherColors[newIndex].name || '');
+      setFeatherColor(FEATHERS_DATA[newIndex].title || '');
     }
   };
   
   const nextFeatherColor = () => {
-    if (featherColors.length > 0) {
-      const newIndex = featherColorIndex >= featherColors.length - 1 ? 0 : featherColorIndex + 1;
+    if (FEATHERS_DATA.length > 0) {
+      const newIndex = featherColorIndex >= FEATHERS_DATA.length - 1 ? 0 : featherColorIndex + 1;
       setFeatherColorIndex(newIndex);
-      setFeatherColor(featherColors[newIndex].name || '');
+      setFeatherColor(FEATHERS_DATA[newIndex].title || '');
     }
   };
   
   const prevHabitat = () => {
-    if (habitats.length > 0) {
-      const newIndex = habitatIndex <= 0 ? habitats.length - 1 : habitatIndex - 1;
+    if (HABITATS_DATA.length > 0) {
+      const newIndex = habitatIndex <= 0 ? HABITATS_DATA.length - 1 : habitatIndex - 1;
       setHabitatIndex(newIndex);
-      setHabitat(habitats[newIndex].name || '');
+      setHabitat(HABITATS_DATA[newIndex].title || '');
     }
   };
   
   const nextHabitat = () => {
-    if (habitats.length > 0) {
-      const newIndex = habitatIndex >= habitats.length - 1 ? 0 : habitatIndex + 1;
+    if (HABITATS_DATA.length > 0) {
+      const newIndex = habitatIndex >= HABITATS_DATA.length - 1 ? 0 : habitatIndex + 1;
       setHabitatIndex(newIndex);
-      setHabitat(habitats[newIndex].name || '');
+      setHabitat(HABITATS_DATA[newIndex].title || '');
     }
+  };
+
+  // Funcție pentru resetarea unui filtru
+  const resetAspect = () => {
+    setAspect('');
+    setAspectIndex(-1);
+  };
+  
+  const resetFeatherColor = () => {
+    setFeatherColor('');
+    setFeatherColorIndex(-1);
+  };
+  
+  const resetHabitat = () => {
+    setHabitat('');
+    setHabitatIndex(-1);
   };
 
   // Funcție pentru navigarea către pagina enciclopediei cu rezultatele filtrate
   const goToEncyclopedia = () => {
-    if (results.length === 0) return;
-    
     // Construiește parametrii de query pentru filtrare
     const queryParams = new URLSearchParams();
     
-    // Adaugă ID-urile păsărilor
-    queryParams.set('birds', results.map(bird => bird._id).join(','));
+    if (results.length > 0) {
+      // Adaugă ID-urile păsărilor doar dacă avem rezultate
+      queryParams.set('birds', results.map(bird => bird._id).join(','));
+    }
     
-    // Adaugă criteriile de filtrare
-    if (aspect) queryParams.set('aspect', aspect);
-    if (featherColor) queryParams.set('featherColor', featherColor);
-    if (habitat) queryParams.set('habitat', habitat);
+    // Adaugă doar criteriile de filtrare care sunt active
+    if (aspectIndex >= 0 && aspect) queryParams.set('aspect', aspect);
+    if (featherColorIndex >= 0 && featherColor) queryParams.set('featherColor', featherColor);
+    if (habitatIndex >= 0 && habitat) queryParams.set('habitat', habitat);
     
     // Redirectăm către pagina enciclopediei cu parametrii de query
     navigate(`/encyclopedia?${queryParams.toString()}`);
@@ -203,7 +424,6 @@ const BirdFilter = () => {
             <button 
               onClick={prevAspect}
               className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-2 z-10"
-              disabled={loading || aspects.length === 0}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -211,21 +431,26 @@ const BirdFilter = () => {
             </button>
 
             <div className="w-full h-full flex items-center justify-center p-4">
-              {loading ? (
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
-              ) : (
-                <img 
-                  src={aspectIndex >= 0 && aspects[aspectIndex] ? aspects[aspectIndex].image : '/Images/question_mark.png'}
-                  alt={aspectIndex >= 0 && aspects[aspectIndex] ? aspects[aspectIndex].name : 'Selectează un aspect'}
-                  className="max-w-full max-h-full object-contain"
-                />
+              <img 
+                src={aspectIndex >= 0 ? ASPECTS_DATA[aspectIndex].url : '/Images/question_mark.png'}
+                alt={aspectIndex >= 0 ? ASPECTS_DATA[aspectIndex].title : 'Selectează un aspect'}
+                className="max-w-full max-h-full object-contain"
+                onError={handleImageError}
+              />
+              {aspectIndex >= 0 && (
+                <button 
+                  onClick={resetAspect}
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600"
+                  title="Resetează aspectul"
+                >
+                  ×
+                </button>
               )}
             </div>
 
             <button 
               onClick={nextAspect}
               className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-2 z-10"
-              disabled={loading || aspects.length === 0}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -233,7 +458,7 @@ const BirdFilter = () => {
             </button>
           </div>
           <p className="text-center mt-4 font-medium text-gray-700">
-            {aspectIndex >= 0 && aspects[aspectIndex] ? aspects[aspectIndex].name : 'Selectează un aspect'}
+            {aspectIndex >= 0 ? ASPECTS_DATA[aspectIndex].title : 'Selectează un aspect'}
           </p>
         </div>
 
@@ -244,7 +469,6 @@ const BirdFilter = () => {
             <button 
               onClick={prevFeatherColor}
               className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-2 z-10"
-              disabled={loading || featherColors.length === 0}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -252,21 +476,26 @@ const BirdFilter = () => {
             </button>
 
             <div className="w-full h-full flex items-center justify-center p-4">
-              {loading ? (
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
-              ) : (
-                <img 
-                  src={featherColorIndex >= 0 && featherColors[featherColorIndex] ? featherColors[featherColorIndex].image : '/Images/question_mark.png'}
-                  alt={featherColorIndex >= 0 && featherColors[featherColorIndex] ? featherColors[featherColorIndex].name : 'Selectează o culoare'}
-                  className="max-w-full max-h-full object-contain"
-                />
+              <img 
+                src={featherColorIndex >= 0 ? FEATHERS_DATA[featherColorIndex].url : '/Images/question_mark.png'}
+                alt={featherColorIndex >= 0 ? FEATHERS_DATA[featherColorIndex].title : 'Selectează o culoare'}
+                className="max-w-full max-h-full object-contain"
+                onError={handleImageError}
+              />
+              {featherColorIndex >= 0 && (
+                <button 
+                  onClick={resetFeatherColor}
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600"
+                  title="Resetează culoarea"
+                >
+                  ×
+                </button>
               )}
             </div>
 
             <button 
               onClick={nextFeatherColor}
               className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-2 z-10"
-              disabled={loading || featherColors.length === 0}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -274,7 +503,7 @@ const BirdFilter = () => {
             </button>
           </div>
           <p className="text-center mt-4 font-medium text-gray-700">
-            {featherColorIndex >= 0 && featherColors[featherColorIndex] ? featherColors[featherColorIndex].name : 'Selectează o culoare'}
+            {featherColorIndex >= 0 ? FEATHERS_DATA[featherColorIndex].title : 'Selectează o culoare'}
           </p>
         </div>
 
@@ -285,7 +514,6 @@ const BirdFilter = () => {
             <button 
               onClick={prevHabitat}
               className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-2 z-10"
-              disabled={loading || habitats.length === 0}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -293,21 +521,26 @@ const BirdFilter = () => {
             </button>
 
             <div className="w-full h-full flex items-center justify-center p-4">
-              {loading ? (
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
-              ) : (
-                <img 
-                  src={habitatIndex >= 0 && habitats[habitatIndex] ? habitats[habitatIndex].image : '/Images/question_mark.png'}
-                  alt={habitatIndex >= 0 && habitats[habitatIndex] ? habitats[habitatIndex].name : 'Selectează un habitat'}
-                  className="max-w-full max-h-full object-contain"
-                />
+              <img 
+                src={habitatIndex >= 0 ? HABITATS_DATA[habitatIndex].url : '/Images/question_mark.png'}
+                alt={habitatIndex >= 0 ? HABITATS_DATA[habitatIndex].title : 'Selectează un habitat'}
+                className="max-w-full max-h-full object-contain"
+                onError={handleImageError}
+              />
+              {habitatIndex >= 0 && (
+                <button 
+                  onClick={resetHabitat}
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600"
+                  title="Resetează habitatul"
+                >
+                  ×
+                </button>
               )}
             </div>
 
             <button 
               onClick={nextHabitat}
               className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-2 z-10"
-              disabled={loading || habitats.length === 0}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -315,7 +548,7 @@ const BirdFilter = () => {
             </button>
           </div>
           <p className="text-center mt-4 font-medium text-gray-700">
-            {habitatIndex >= 0 && habitats[habitatIndex] ? habitats[habitatIndex].name : 'Selectează un habitat'}
+            {habitatIndex >= 0 ? HABITATS_DATA[habitatIndex].title : 'Selectează un habitat'}
           </p>
         </div>
       </div>

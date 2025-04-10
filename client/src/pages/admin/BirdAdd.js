@@ -10,9 +10,12 @@ const AdminBirdAdd = () => {
   const [isUploading, setIsUploading] = useState(false);
   const imageFileInputRef = useRef(null);
   const audioFileInputRef = useRef(null);
-  const aspectImageRefs = useRef([]);
-  const featherColorImageRefs = useRef([]);
-  const habitatImageRefs = useRef([]);
+  
+  // Adăugăm state-uri pentru opțiunile din fiecare tabela
+  const [aspectsOptions, setAspectsOptions] = useState([]);
+  const [feathersOptions, setFeathersOptions] = useState([]);
+  const [habitatsOptions, setHabitatsOptions] = useState([]);
+  const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   
   const [bird, setBird] = useState({
     name: '',
@@ -27,6 +30,93 @@ const AdminBirdAdd = () => {
     featherColors: [],
     habitats: []
   });
+
+  // Încărcăm datele din tabele când se încarcă componenta
+  useEffect(() => {
+    const fetchOptionsData = async () => {
+      setIsLoadingOptions(true);
+      try {
+        // Aici ar trebui să faci request-uri către API pentru a obține datele
+        // Deocamdată voi folosi direct datele pe care le-ai furnizat
+        
+        const aspectsData = [
+          { _id: "67f7d6c753563001b171c01d", title: "Bufnita", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294851/silueta_bufnita_mbesit.png" },
+          { _id: "67f7d6c753563001b171c01e", title: "Pasare cantatoare", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294851/pasare_cantatoare_pq9bxr.webp" },
+          { _id: "67f7d6c753563001b171c01f", title: "Cioara", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294850/silueta_cioara_zbx0oi.webp" },
+          { _id: "67f7d6c753563001b171c020", title: "Rapitor", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294850/rapitor_zvky2o.png" },
+          { _id: "67f7d6c753563001b171c021", title: "Barza", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294849/silueta_barza_me72os.png" },
+          { _id: "67f7d6c753563001b171c022", title: "Rata", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294849/silueta_rata_zh5yoj.jpg" },
+          { _id: "67f7d6c753563001b171c023", title: "Ciocanitoare", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294848/aspect_ciocanitoare_qhngt6.avif" },
+          { _id: "67f7d6c753563001b171c024", title: "Porumbel", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294847/silueta_porumbel_hxvx0z.webp" }
+        ];
+        
+        const feathersData = [
+          { _id: "67f7d6db53563001b171c027", title: "Roz", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294675/roz_fce5tl.png" },
+          { _id: "67f7d6db53563001b171c028", title: "Rosu", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294675/rosu_lb7vdd.png" },
+          { _id: "67f7d6db53563001b171c029", title: "Maro deschis", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294675/maro_deschis_gtoifb.png" },
+          { _id: "67f7d6db53563001b171c02a", title: "Portocaliu", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294674/portocaliu_v7lvng.png" },
+          { _id: "67f7d6db53563001b171c02b", title: "Maro", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294674/maro_gja6jh.png" },
+          { _id: "67f7d6db53563001b171c02c", title: "Negru", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294674/negru_gvx6ep.png" },
+          { _id: "67f7d6db53563001b171c02d", title: "Albastru", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294673/albastru_z7pzcp.png" },
+          { _id: "67f7d6db53563001b171c02e", title: "Gri", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294673/gri_fd2rw3.png" },
+          { _id: "67f7d6db53563001b171c02f", title: "Alb", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294673/alb_csv9ca.png" },
+          { _id: "67f7d6db53563001b171c030", title: "Galben", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294673/galben_dbnpw5.png" },
+          { _id: "67f7d6db53563001b171c031", title: "Verde", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294672/verde_fz0nnh.png" }
+        ];
+        
+        const habitatsData = [
+          { _id: "67f7d6ec53563001b171c034", title: "Localitate", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294910/localitate_bf5nkl.png" },
+          { _id: "67f7d6ec53563001b171c035", title: "Arbori", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294910/arbori_cnib17.png" },
+          { _id: "67f7d6ec53563001b171c036", title: "Camp", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294909/camp_gqdwid.png" },
+          { _id: "67f7d6ec53563001b171c037", title: "Mal", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294909/mal_nbnf0j.png" },
+          { _id: "67f7d6ec53563001b171c038", title: "Agricol", url: "https://res.cloudinary.com/dwewbzrjv/image/upload/v1744294908/agricol_nuiabj.png" }
+        ];
+        
+        // Actualizăm state-urile cu datele obținute
+        setAspectsOptions(aspectsData);
+        setFeathersOptions(feathersData);
+        setHabitatsOptions(habitatsData);
+      } catch (err) {
+        console.error('Eroare la încărcarea opțiunilor:', err);
+        setError('A apărut o eroare la încărcarea opțiunilor disponibile.');
+      } finally {
+        setIsLoadingOptions(false);
+      }
+    };
+    
+    fetchOptionsData();
+  }, []);
+
+  // Adăugăm funcție pentru selectarea unei opțiuni din dropdown
+  const handleSelectOption = (field, index, optionId) => {
+    // Găsim opțiunea selectată în funcție de field
+    let selectedOption;
+    if (field === 'aspects') {
+      selectedOption = aspectsOptions.find(option => option._id === optionId);
+    } else if (field === 'featherColors') {
+      selectedOption = feathersOptions.find(option => option._id === optionId);
+    } else if (field === 'habitats') {
+      selectedOption = habitatsOptions.find(option => option._id === optionId);
+    }
+    
+    if (!selectedOption) return;
+    
+    // Actualizăm array-ul potrivit din bird
+    setBird(prev => {
+      const newArray = [...prev[field]];
+      newArray[index] = {
+        name: selectedOption.title,
+        image: {
+          url: selectedOption.url
+        },
+        selectedId: optionId // Păstrăm ID-ul selectat pentru a menține selecția în dropdown
+      };
+      return {
+        ...prev,
+        [field]: newArray
+      };
+    });
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -51,7 +141,7 @@ const AdminBirdAdd = () => {
   const addArrayItem = (field) => {
     setBird(prev => ({
       ...prev,
-      [field]: [...prev[field], { name: '', image: '' }]
+      [field]: [...prev[field], { name: '', image: '', selectedId: '' }]
     }));
   };
 
@@ -161,10 +251,6 @@ const AdminBirdAdd = () => {
     handleFileUpload(e, 'audio');
   };
 
-  const handleArrayImageSelect = (e, arrayField, index) => {
-    handleFileUpload(e, 'image');
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -191,21 +277,21 @@ const AdminBirdAdd = () => {
         image: typeof bird.image === 'string' ? { url: bird.image } : bird.image,
         // Asigurăm-ne că audio este în formatul corect
         audio: bird.audio ? (typeof bird.audio === 'string' ? { url: bird.audio } : bird.audio) : null,
-        // Procesăm aspectele
+        // Procesăm aspectele și eliminăm proprietatea selectedId care e folosită doar în UI
         aspects: bird.aspects.map(aspect => ({
-          ...aspect,
+          name: aspect.name,
           image: typeof aspect.image === 'string' ? { url: aspect.image } : aspect.image
-        })).filter(aspect => aspect.name && aspect.image),
-        // Procesăm culorile penajului
+        })).filter(aspect => aspect.name && aspect.image?.url),
+        // Procesăm culorile penajului și eliminăm proprietatea selectedId
         featherColors: bird.featherColors.map(color => ({
-          ...color,
+          name: color.name,
           image: typeof color.image === 'string' ? { url: color.image } : color.image
-        })).filter(color => color.name && color.image),
-        // Procesăm habitatele
+        })).filter(color => color.name && color.image?.url),
+        // Procesăm habitatele și eliminăm proprietatea selectedId
         habitats: bird.habitats.map(habitat => ({
-          ...habitat,
+          name: habitat.name,
           image: typeof habitat.image === 'string' ? { url: habitat.image } : habitat.image
-        })).filter(habitat => habitat.name && habitat.image)
+        })).filter(habitat => habitat.name && habitat.image?.url)
       };
 
       const response = await axios.post('/api/admin/birds', birdData, {
@@ -240,165 +326,6 @@ const AdminBirdAdd = () => {
         />
       </div>
     );
-  };
-
-  const handleAspectImageUpload = async (event, index) => {
-    try {
-      setIsUploading(true);
-      setError(null);
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('uploadType', 'aspect');
-
-      const response = await axios.post('/api/admin/upload-bird-file', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          setUploadProgress(percentCompleted);
-        }
-      });
-
-      if (response.data.success) {
-        const newAspects = [...bird.aspects];
-        newAspects[index] = {
-          ...newAspects[index],
-          image: {
-            url: response.data.url,
-            public_id: response.data.public_id,
-            filename: response.data.filename
-          }
-        };
-
-        setBird(prev => ({
-          ...prev,
-          aspects: newAspects
-        }));
-
-        setUploadProgress(100);
-        setTimeout(() => {
-          setUploadProgress(0);
-          setIsUploading(false);
-        }, 1000);
-      } else {
-        throw new Error(response.data.error || 'Eroare la încărcarea imaginii pentru aspect');
-      }
-    } catch (error) {
-      console.error('Eroare la încărcarea imaginii pentru aspect:', error);
-      setError(error.response?.data?.error || error.message || 'Eroare la încărcarea imaginii pentru aspect');
-      setUploadProgress(0);
-      setIsUploading(false);
-    }
-  };
-
-  const handleFeatherColorImageUpload = async (event, index) => {
-    try {
-      setIsUploading(true);
-      setError(null);
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('uploadType', 'feather');
-
-      const response = await axios.post('/api/admin/upload-bird-file', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          setUploadProgress(percentCompleted);
-        }
-      });
-
-      if (response.data.success) {
-        const newFeatherColors = [...bird.featherColors];
-        newFeatherColors[index] = {
-          ...newFeatherColors[index],
-          image: {
-            url: response.data.url,
-            public_id: response.data.public_id,
-            filename: response.data.filename
-          }
-        };
-
-        setBird(prev => ({
-          ...prev,
-          featherColors: newFeatherColors
-        }));
-
-        setUploadProgress(100);
-        setTimeout(() => {
-          setUploadProgress(0);
-          setIsUploading(false);
-        }, 1000);
-      } else {
-        throw new Error(response.data.error || 'Eroare la încărcarea imaginii pentru culoarea penajului');
-      }
-    } catch (error) {
-      console.error('Eroare la încărcarea imaginii pentru culoarea penajului:', error);
-      setError(error.response?.data?.error || error.message || 'Eroare la încărcarea imaginii pentru culoarea penajului');
-      setUploadProgress(0);
-      setIsUploading(false);
-    }
-  };
-
-  const handleHabitatImageUpload = async (event, index) => {
-    try {
-      setIsUploading(true);
-      setError(null);
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('uploadType', 'habitat');
-
-      const response = await axios.post('/api/admin/upload-bird-file', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          setUploadProgress(percentCompleted);
-        }
-      });
-
-      if (response.data.success) {
-        const newHabitats = [...bird.habitats];
-        newHabitats[index] = {
-          ...newHabitats[index],
-          image: {
-            url: response.data.url,
-            public_id: response.data.public_id,
-            filename: response.data.filename
-          }
-        };
-
-        setBird(prev => ({
-          ...prev,
-          habitats: newHabitats
-        }));
-
-        setUploadProgress(100);
-        setTimeout(() => {
-          setUploadProgress(0);
-          setIsUploading(false);
-        }, 1000);
-      } else {
-        throw new Error(response.data.error || 'Eroare la încărcarea imaginii pentru habitat');
-      }
-    } catch (error) {
-      console.error('Eroare la încărcarea imaginii pentru habitat:', error);
-      setError(error.response?.data?.error || error.message || 'Eroare la încărcarea imaginii pentru habitat');
-      setUploadProgress(0);
-      setIsUploading(false);
-    }
   };
 
   return (
@@ -638,47 +565,26 @@ const AdminBirdAdd = () => {
           {bird.aspects.map((aspect, index) => (
             <div key={index} className="flex gap-4 items-start mb-4">
               <div className="flex-1">
-                <input
-                  type="text"
-                  value={aspect.name}
-                  onChange={(e) => handleArrayInputChange(e, 'aspects', index, 'name')}
-                  placeholder="Nume aspect"
+                <select
+                  value={aspect.selectedId || ""}
+                  onChange={(e) => handleSelectOption('aspects', index, e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                />
+                >
+                  <option value="">Selectează un aspect</option>
+                  {aspectsOptions.map((option) => (
+                    <option key={option._id} value={option._id}>
+                      {option.title}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex-1">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={aspect.image}
-                    onChange={(e) => handleArrayInputChange(e, 'aspects', index, 'image')}
-                    placeholder="URL imagine"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      aspectImageRefs.current[index]?.click();
-                    }}
-                    className="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 focus:outline-none"
-                  >
-                    Încarcă
-                  </button>
-                  <input
-                    type="file"
-                    ref={el => aspectImageRefs.current[index] = el}
-                    onChange={(e) => handleAspectImageUpload(e, index)}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                </div>
-                {aspect.image && (
+                {aspect.image && aspect.image.url && (
                   <div className="mt-2 border p-1 inline-block">
                     <img
                       src={getImageUrl(aspect.image)}
                       alt={aspect.name || 'Aspect'}
-                      className="w-auto h-auto"
+                      className="w-auto h-auto max-h-32"
                     />
                   </div>
                 )}
@@ -712,47 +618,26 @@ const AdminBirdAdd = () => {
           {bird.featherColors.map((color, index) => (
             <div key={index} className="flex gap-4 items-start mb-4">
               <div className="flex-1">
-                <input
-                  type="text"
-                  value={color.name}
-                  onChange={(e) => handleArrayInputChange(e, 'featherColors', index, 'name')}
-                  placeholder="Nume culoare"
+                <select
+                  value={color.selectedId || ""}
+                  onChange={(e) => handleSelectOption('featherColors', index, e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                />
+                >
+                  <option value="">Selectează o culoare</option>
+                  {feathersOptions.map((option) => (
+                    <option key={option._id} value={option._id}>
+                      {option.title}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex-1">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={color.image}
-                    onChange={(e) => handleArrayInputChange(e, 'featherColors', index, 'image')}
-                    placeholder="URL imagine"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      featherColorImageRefs.current[index]?.click();
-                    }}
-                    className="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 focus:outline-none"
-                  >
-                    Încarcă
-                  </button>
-                  <input
-                    type="file"
-                    ref={el => featherColorImageRefs.current[index] = el}
-                    onChange={(e) => handleFeatherColorImageUpload(e, index)}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                </div>
-                {color.image && (
+                {color.image && color.image.url && (
                   <div className="mt-2 border p-1 inline-block">
                     <img
                       src={getImageUrl(color.image)}
                       alt={color.name || 'Culoare'}
-                      className="w-auto h-auto"
+                      className="w-auto h-auto max-h-32"
                     />
                   </div>
                 )}
@@ -786,47 +671,26 @@ const AdminBirdAdd = () => {
           {bird.habitats.map((habitat, index) => (
             <div key={index} className="flex gap-4 items-start mb-4">
               <div className="flex-1">
-                <input
-                  type="text"
-                  value={habitat.name}
-                  onChange={(e) => handleArrayInputChange(e, 'habitats', index, 'name')}
-                  placeholder="Nume habitat"
+                <select
+                  value={habitat.selectedId || ""}
+                  onChange={(e) => handleSelectOption('habitats', index, e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                />
+                >
+                  <option value="">Selectează un habitat</option>
+                  {habitatsOptions.map((option) => (
+                    <option key={option._id} value={option._id}>
+                      {option.title}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex-1">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={habitat.image}
-                    onChange={(e) => handleArrayInputChange(e, 'habitats', index, 'image')}
-                    placeholder="URL imagine"
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      habitatImageRefs.current[index]?.click();
-                    }}
-                    className="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 focus:outline-none"
-                  >
-                    Încarcă
-                  </button>
-                  <input
-                    type="file"
-                    ref={el => habitatImageRefs.current[index] = el}
-                    onChange={(e) => handleHabitatImageUpload(e, index)}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                </div>
-                {habitat.image && (
+                {habitat.image && habitat.image.url && (
                   <div className="mt-2 border p-1 inline-block">
                     <img
                       src={getImageUrl(habitat.image)}
                       alt={habitat.name || 'Habitat'}
-                      className="w-auto h-auto"
+                      className="w-auto h-auto max-h-32"
                     />
                   </div>
                 )}
