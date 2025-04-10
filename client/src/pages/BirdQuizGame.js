@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
-import './BirdQuizGame.css';
+
 
 // Componenta principală a jocului
 const BirdQuizGame = () => {

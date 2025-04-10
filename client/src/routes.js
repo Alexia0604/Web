@@ -14,12 +14,16 @@ import AdminUsers from './pages/admin/Users.js';
 import AdminBirds from './pages/admin/Birds.js';
 import AdminBirdAdd from './pages/admin/BirdAdd.js';
 import AdminUserAdd from './pages/admin/UserAdd.js';
+import AdminBirdEdit from './pages/admin/BirdEdit.js';
 import NotFound from './pages/NotFound.js';
 import BirdQuizGame from './pages/BirdQuizGame.js';
 import QuizHistory from './pages/QuizHistory.js';
 import BirdDetail from './pages/BirdDetail.js';
 import Quiz from './pages/Quiz.js';
 import ForgotPassword from './pages/ForgotPassword.js';
+import Forum from './pages/Forum/Forum.js';
+import NewTopic from './pages/Forum/NewTopic.js';
+import TopicView from './pages/Forum/TopicView.js';
 
 const AppRoutes = () => {
   return (
@@ -36,8 +40,15 @@ const AppRoutes = () => {
       <Route path="/birds/filter" element={<BirdFilter />} />
       <Route path="/quiz" element={<Quiz />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/forum" element={<Forum />} />
+      <Route path="/forum/topic/:id" element={<TopicView />} />
 
       {/* Rute protejate - folosind componenta PrivateRoute direct */}
+      <Route path="/forum/new-topic" element={
+        <PrivateRoute>
+          <NewTopic />
+        </PrivateRoute>
+      } />
       <Route path="/games" element={
         <PrivateRoute>
           <BirdQuizGame />
@@ -83,6 +94,13 @@ const AppRoutes = () => {
       <Route path="/admin/birds/add" element={
         <AdminRoute>
           <AdminBirdAdd />
+        </AdminRoute>
+      } />
+
+       {/* Rută pentru editarea păsărilor */}
+       <Route path="/admin/birds/edit/:id" element={
+        <AdminRoute>
+          <AdminBirdEdit />
         </AdminRoute>
       } />
 

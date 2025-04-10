@@ -1,27 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
-import config from '../config/config'; // importăm configurația pentru paths
+import { API_BASE_URL } from '../../config';
 
-const EditarePasare = () => {
+const BirdEdit = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
   // State inițial pentru pasăre
-  const [pasare, setPasare] = useState({
+  const [formData, setFormData] = useState({
     name: "",
     scientificName: "",
     englishName: "",
     family: "",
     order: "",
     description: "",
+    image: null,
+    audio: null,
     aspects: [],
     featherColors: [],
-    habitats: [],
-    image: "",
-    audio: ""
+    habitats: []
   });
   
   // State pentru fișiere
@@ -31,32 +31,41 @@ const EditarePasare = () => {
   
   // Obținem datele păsării
   useEffect(() => {
-    const fetchPasare = async () => {
+    const fetchBird = async () => {
       try {
-        setLoading(true);
-        const response = await axios.get(`/api/birds/${id}`);
-        setPasare(response.data);
+        const response = await axios.get(`${API_BASE_URL}/api/admin/birds/${id}`, {
+          withCredentials: true
+        });
+        const bird = response.data;
+        setFormData({
+          ...bird,
+          image: bird.image || null,
+          audio: bird.audio || null,
+          aspects: bird.aspects || [],
+          featherColors: bird.featherColors || [],
+          habitats: bird.habitats || []
+        });
         
         // Setăm și previzualizarea imaginii
-        if (response.data.image) {
-          setImagePreview(`${config.assetsUrl}${response.data.image}`);
+        if (bird.image) {
+          setImagePreview(`${API_BASE_URL}/Images/${bird.image}`);
         }
         
         setLoading(false);
-      } catch (err) {
-        setError('Eroare la încărcarea datelor păsării');
+      } catch (error) {
+        console.error('Error fetching bird:', error);
+        setError('Error fetching bird data');
         setLoading(false);
-        console.error(err);
       }
     };
     
-    fetchPasare();
+    fetchBird();
   }, [id]);
   
   // Handler pentru schimbările în input-uri
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setPasare(prev => ({
+    setFormData(prev => ({
       ...prev,
       [name]: value
     }));
@@ -65,7 +74,7 @@ const EditarePasare = () => {
   // Handler pentru obiecte din array-uri (aspecte, culori, habitate)
   const handleArrayObjectChange = (e, index, arrayName, field) => {
     const { value } = e.target;
-    setPasare(prev => {
+    setFormData(prev => {
       const updatedArray = [...prev[arrayName]];
       updatedArray[index] = {
         ...updatedArray[index],
@@ -87,18 +96,23 @@ const EditarePasare = () => {
     formData.append('file', file);
     
     try {
-      const response = await axios.post('/api/admin/upload-bird-file', formData, {
+      const response = await axios.post(`${API_BASE_URL}/api/admin/upload-bird-file`, formData, {
+        withCredentials: true,
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
       
       if (response.data.success) {
-        setPasare(prev => {
+        setFormData(prev => {
           const updatedArray = [...prev[arrayName]];
           updatedArray[index] = {
             ...updatedArray[index],
-            image: response.data.file.path
+            image: {
+              url: response.data.file.url,
+              public_id: response.data.file.public_id,
+              filename: response.data.file.filename
+            }
           };
           return {
             ...prev,
@@ -114,7 +128,7 @@ const EditarePasare = () => {
   
   // Adaugă un element nou într-un array
   const handleAddArrayItem = (arrayName) => {
-    setPasare(prev => ({
+    setFormData(prev => ({
       ...prev,
       [arrayName]: [...prev[arrayName], { name: "", image: "" }]
     }));
@@ -122,7 +136,7 @@ const EditarePasare = () => {
   
   // Șterge un element dintr-un array
   const handleRemoveArrayItem = (index, arrayName) => {
-    setPasare(prev => {
+    setFormData(prev => {
       const updatedArray = [...prev[arrayName]];
       updatedArray.splice(index, 1);
       return {
@@ -133,37 +147,41 @@ const EditarePasare = () => {
   };
   
   // Handler pentru fișierul de imagine
-  const handleImageChange = async (e) => {
+  const handleImageChange = async (e, field, arrayField = null, index = null) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     const formData = new FormData();
     formData.append('file', file);
-    
-    if (pasare.image) {
-      formData.append('oldFilePath', pasare.image);
-    }
-    
+
     try {
-      setLoading(true);
-      const response = await axios.post('/api/admin/upload-bird-file', formData, {
+      const response = await axios.post(`${API_BASE_URL}/api/admin/upload-bird-file`, formData, {
+        withCredentials: true,
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
+
+      const { url, public_id, filename } = response.data;
       
-      if (response.data.success) {
-        setPasare(prev => ({
+      if (arrayField) {
+        setFormData(prev => {
+          const newArray = [...prev[arrayField]];
+          newArray[index] = {
+            ...newArray[index],
+            image: { url, public_id, filename }
+          };
+          return { ...prev, [arrayField]: newArray };
+        });
+      } else {
+        setFormData(prev => ({
           ...prev,
-          image: response.data.file.path
+          [field]: { url, public_id, filename }
         }));
-        setImagePreview(`${config.assetsUrl || ''}/Images/${response.data.file.path}`);
       }
-      setLoading(false);
     } catch (error) {
       console.error('Eroare la încărcarea imaginii:', error);
       alert('Eroare la încărcarea imaginii.');
-      setLoading(false);
     }
   };
   
@@ -175,24 +193,24 @@ const EditarePasare = () => {
     const formData = new FormData();
     formData.append('file', file);
     
-    if (pasare.audio) {
-      formData.append('oldFilePath', pasare.audio);
-    }
-    
     try {
       setLoading(true);
-      const response = await axios.post('/api/admin/upload-bird-file', formData, {
+      const response = await axios.post(`${API_BASE_URL}/api/admin/upload-bird-file`, formData, {
+        withCredentials: true,
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
       
       if (response.data.success) {
-        setPasare(prev => ({
+        setFormData(prev => ({
           ...prev,
-          audio: response.data.file.path
+          audio: {
+            url: response.data.file.url,
+            public_id: response.data.file.public_id,
+            filename: response.data.file.filename
+          }
         }));
-        setAudioFile(null); // Resetăm fișierul pentru a folosi URL-ul de pe server
       }
       setLoading(false);
     } catch (error) {
@@ -202,29 +220,42 @@ const EditarePasare = () => {
     }
   };
   
+  // Render image preview
+  const renderImagePreview = (imageData, field, arrayField = null, index = null) => {
+    if (!imageData || !imageData.url) return null;
+
+    return (
+      <div className="mt-2">
+        <img
+          src={imageData.url}
+          alt="Preview"
+          className="max-w-xs h-auto"
+          onError={(e) => {
+            console.error('Eroare la încărcarea imaginii:', imageData.url);
+            e.target.style.display = 'none';
+          }}
+        />
+      </div>
+    );
+  };
+  
   // Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     try {
       setLoading(true);
-      
-      // Trimitem datele direct, fără FormData deoarece am încărcat deja fișierele
-      const response = await axios.put(`/api/admin/birds/${id}`, pasare);
-      
-      if (response.data) {
-        alert('Pasărea a fost actualizată cu succes!');
-        // Redirecționăm către pagina de administrare a păsărilor
-        navigate('/admin/birds');
-      }
-    } catch (err) {
-      setError('Eroare la salvarea păsării: ' + (err.response?.data?.message || err.message));
+      await axios.put(`${API_BASE_URL}/api/admin/birds/${id}`, formData, {
+        withCredentials: true
+      });
+      navigate('/admin/birds');
+    } catch (error) {
+      console.error('Eroare la actualizarea păsării:', error);
+      setError('Eroare la actualizarea păsării');
       setLoading(false);
-      console.error(err);
     }
   };
   
-  if (loading && !pasare.name) {
+  if (loading && !formData.name) {
     return <div className="text-center p-4">Se încarcă...</div>;
   }
   
@@ -233,8 +264,8 @@ const EditarePasare = () => {
   }
   
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Editare Pasăre: {pasare.name}</h1>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">Editare Pasăre: {formData.name}</h1>
       
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Informații de bază */}
@@ -245,7 +276,7 @@ const EditarePasare = () => {
               <input
                 type="text"
                 name="name"
-                value={pasare.name}
+                value={formData.name}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
                 required
@@ -257,7 +288,7 @@ const EditarePasare = () => {
               <input
                 type="text"
                 name="scientificName"
-                value={pasare.scientificName}
+                value={formData.scientificName}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
                 required
@@ -269,7 +300,7 @@ const EditarePasare = () => {
               <input
                 type="text"
                 name="englishName"
-                value={pasare.englishName}
+                value={formData.englishName}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
               />
@@ -280,7 +311,7 @@ const EditarePasare = () => {
               <input
                 type="text"
                 name="family"
-                value={pasare.family}
+                value={formData.family}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
               />
@@ -291,7 +322,7 @@ const EditarePasare = () => {
               <input
                 type="text"
                 name="order"
-                value={pasare.order}
+                value={formData.order}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
               />
@@ -303,7 +334,7 @@ const EditarePasare = () => {
               <label className="block text-sm font-medium">Descriere:</label>
               <textarea
                 name="description"
-                value={pasare.description}
+                value={formData.description}
                 onChange={handleChange}
                 rows="5"
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border"
@@ -316,27 +347,10 @@ const EditarePasare = () => {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={handleImageChange}
-                  className="mt-1 block w-full"
+                  onChange={(e) => handleImageChange(e, 'image')}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                 />
-                {imagePreview && (
-                  <div className="mt-2">
-                    <img 
-                      src={imagePreview} 
-                      alt="Previzualizare" 
-                      className="h-32 object-contain"
-                    />
-                  </div>
-                )}
-                {pasare.image && !imagePreview && (
-                  <div className="mt-2">
-                    <img 
-                      src={`${config.assetsUrl || ''}/Images/${pasare.image}`} 
-                      alt="Imagine pasăre" 
-                      className="h-32 object-contain"
-                    />
-                  </div>
-                )}
+                {formData.image && renderImagePreview(formData.image, 'image')}
               </div>
               
               <div>
@@ -347,14 +361,11 @@ const EditarePasare = () => {
                   onChange={handleAudioChange}
                   className="mt-1 block w-full"
                 />
-                {pasare.audio && (
-                  <div className="mt-2">
-                    <audio 
-                      controls 
-                      src={`${config.audioUrl}/${pasare.audio}`}
-                      className="w-full"
-                    ></audio>
-                  </div>
+                {formData.audio && (
+                  <audio controls className="mt-2">
+                    <source src={formData.audio.url} type="audio/mpeg" />
+                    Browser-ul tău nu suportă elementul audio.
+                  </audio>
                 )}
               </div>
             </div>
@@ -374,7 +385,7 @@ const EditarePasare = () => {
             </button>
           </div>
           
-          {pasare.aspects.map((aspect, index) => (
+          {formData.aspects.map((aspect, index) => (
             <div key={`aspect-${index}`} className="border p-3 mb-3 rounded-md bg-gray-50">
               <div className="flex flex-col md:flex-row gap-3 mb-2">
                 <div className="flex-1">
@@ -395,10 +406,10 @@ const EditarePasare = () => {
                     onChange={(e) => handleArrayImageUpload(e, index, 'aspects')}
                     className="w-full"
                   />
-                  {aspect.image && (
+                  {aspect.image?.url && (
                     <div className="mt-2">
                       <img 
-                        src={`${config.assetsUrl || ''}/Images/${aspect.image}`}
+                        src={aspect.image.url}
                         alt={aspect.name || "Imagine aspect"} 
                         className="h-16 object-contain"
                       />
@@ -418,7 +429,7 @@ const EditarePasare = () => {
             </div>
           ))}
           
-          {pasare.aspects.length === 0 && (
+          {formData.aspects.length === 0 && (
             <p className="text-gray-500 italic">Niciun aspect adăugat</p>
           )}
         </div>
@@ -436,7 +447,7 @@ const EditarePasare = () => {
             </button>
           </div>
           
-          {pasare.featherColors.map((color, index) => (
+          {formData.featherColors.map((color, index) => (
             <div key={`color-${index}`} className="border p-3 mb-3 rounded-md bg-gray-50">
               <div className="flex flex-col md:flex-row gap-3 mb-2">
                 <div className="flex-1">
@@ -457,10 +468,10 @@ const EditarePasare = () => {
                     onChange={(e) => handleArrayImageUpload(e, index, 'featherColors')}
                     className="w-full"
                   />
-                  {color.image && (
+                  {color.image?.url && (
                     <div className="mt-2">
                       <img 
-                        src={`${config.assetsUrl || ''}/Images/${color.image}`}
+                        src={color.image.url}
                         alt={color.name || "Imagine culoare"} 
                         className="h-16 object-contain"
                       />
@@ -480,7 +491,7 @@ const EditarePasare = () => {
             </div>
           ))}
           
-          {pasare.featherColors.length === 0 && (
+          {formData.featherColors.length === 0 && (
             <p className="text-gray-500 italic">Nicio culoare adăugată</p>
           )}
         </div>
@@ -498,7 +509,7 @@ const EditarePasare = () => {
             </button>
           </div>
           
-          {pasare.habitats.map((habitat, index) => (
+          {formData.habitats.map((habitat, index) => (
             <div key={`habitat-${index}`} className="border p-3 mb-3 rounded-md bg-gray-50">
               <div className="flex flex-col md:flex-row gap-3 mb-2">
                 <div className="flex-1">
@@ -519,10 +530,10 @@ const EditarePasare = () => {
                     onChange={(e) => handleArrayImageUpload(e, index, 'habitats')}
                     className="w-full"
                   />
-                  {habitat.image && (
+                  {habitat.image?.url && (
                     <div className="mt-2">
                       <img 
-                        src={`${config.assetsUrl || ''}/Images/${habitat.image}`}
+                        src={habitat.image.url}
                         alt={habitat.name || "Imagine habitat"} 
                         className="h-16 object-contain"
                       />
@@ -542,7 +553,7 @@ const EditarePasare = () => {
             </div>
           ))}
           
-          {pasare.habitats.length === 0 && (
+          {formData.habitats.length === 0 && (
             <p className="text-gray-500 italic">Niciun habitat adăugat</p>
           )}
         </div>
@@ -569,4 +580,4 @@ const EditarePasare = () => {
   );
 };
 
-export default EditarePasare;
+export default BirdEdit;

@@ -12,7 +12,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: ['http://localhost:3000', 'http://localhost:3001'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
@@ -62,6 +62,7 @@ const birdRoutes = require('./routes/birdRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const quizRoutes = require('./routes/quizRoutes');
+const forumRoutes = require('./routes/forumRoutes');
 
 // Rute de bază
 app.get('/', (req, res) => {
@@ -74,6 +75,7 @@ app.use('/api/birds', birdRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/quiz', quizRoutes);
+app.use('/api/forum', forumRoutes);
 
 // Rută de test pentru a verifica dacă serverul răspunde
 app.get('/api/test', (req, res) => {

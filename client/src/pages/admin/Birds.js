@@ -148,14 +148,14 @@ const AdminBirds = () => {
                 <tr key={bird._id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      {bird.image ? (
+                      {bird.image && bird.image.url ? (
                         <div className="h-10 w-10 rounded-full overflow-hidden flex-shrink-0">
                           <img 
-                            src={bird.image} 
+                            src={bird.image.url} 
                             alt={bird.name} 
                             className="h-full w-full object-cover"
                             onError={(e) => {
-                              console.error('Eroare la încărcarea imaginii:', bird.image);
+                              console.error('Eroare la încărcarea imaginii:', bird.image.url);
                               e.target.style.display = 'none';
                               const placeholder = e.target.parentElement.nextElementSibling;
                               if (placeholder) {

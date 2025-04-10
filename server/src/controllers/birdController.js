@@ -1,15 +1,23 @@
 const Bird = require('../models/Bird');
 const config = require('../config/config');
+const fs = require('fs').promises;
+const path = require('path');
 
 // Funcție utilitară pentru a rezolva URL-urile de imagini
-const resolveImageUrl = (imagePath) => {
-  // Dacă imaginea este deja un URL complet, returnează-l
-  if (imagePath?.startsWith('http')) return imagePath;
+const resolveImageUrl = (image) => {
+  // Dacă imaginea este un obiect Cloudinary
+  if (image && typeof image === 'object' && image.url) {
+    return image.url;
+  }
   
-  // Altfel, prepend-ează URL-ul de bază
-  return imagePath 
-    ? `${config.assetsUrl}/${imagePath}`
-    : `${config.assetsUrl}/placeholder-bird.png`;
+  // Dacă imaginea este un string (URL sau path)
+  if (typeof image === 'string') {
+    if (image.startsWith('http')) return image;
+    return `${config.assetsUrl}/${image}`;
+  }
+  
+  // Fallback la imaginea placeholder
+  return `${config.assetsUrl}/placeholder-bird.png`;
 };
 
 // Funcție pentru a procesa obiectul pasării cu URL-uri complete
@@ -73,6 +81,29 @@ exports.getBirds = async (req, res) => {
   } catch (err) {
     console.error('Eroare la obținerea păsărilor:', err.message);
     res.status(500).json({ message: err.message });
+  }
+};
+
+// Obține toate păsările pentru admin (fără paginare, doar cu date de bază)
+exports.getAllBirds = async (req, res) => {
+  try {
+    const birds = await Bird.find({}).select('name scientificName image createdAt updatedAt');
+    
+    // Construim URL-ul complet pentru imagini folosind funcția resolveImageUrl
+    const birdsWithFullUrls = birds.map(bird => {
+      const birdObj = bird.toObject();
+      birdObj.imageUrl = resolveImageUrl(birdObj.image);
+      return birdObj;
+    });
+
+    res.json({ success: true, birds: birdsWithFullUrls });
+  } catch (error) {
+    console.error('Eroare la obținerea păsărilor:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Eroare la obținerea păsărilor', 
+      error: error.message
+    });
   }
 };
 
@@ -150,154 +181,333 @@ exports.getFilterOptions = async (req, res) => {
       
       // Procesează culorile penajului
       if (bird.featherColors && Array.isArray(bird.featherColors)) {
-          bird.featherColors.forEach(color => {
-            if (color && color.name && !featherColorsSet.has(color.name)) {
-              featherColorsSet.add(color.name);
-              featherColors.push({
-                name: color.name,
-                image: resolveImageUrl(color.image)
-              });
-            }
-          });
+        bird.featherColors.forEach(color => {
+          if (color && color.name && !featherColorsSet.has(color.name)) {
+            featherColorsSet.add(color.name);
+            featherColors.push({
+              name: color.name,
+              image: resolveImageUrl(color.image)
+            });
+          }
+        });
+      }
+      
+      // Procesează habitatele
+      if (bird.habitats && Array.isArray(bird.habitats)) {
+        bird.habitats.forEach(habitat => {
+          if (habitat && habitat.name && !habitatsSet.has(habitat.name)) {
+            habitatsSet.add(habitat.name);
+            habitats.push({
+              name: habitat.name,
+              image: resolveImageUrl(habitat.image)
+            });
+          }
+        });
+      }
+    });
+    
+    // Trimite opțiunile de filtrare
+    res.json({
+      aspects,
+      featherColors,
+      habitats
+    });
+  } catch (error) {
+    console.error('Eroare la obținerea opțiunilor de filtrare:', error);
+    res.status(500).json({ message: 'Eroare la obținerea opțiunilor de filtrare', error: error.message });
+  }
+};
+
+// Filtrează păsările după criterii
+exports.filterBirds = async (req, res) => {
+  try {
+    const { aspect, featherColor, habitat } = req.query;
+    
+    let query = {};
+    
+    // Construiește query-ul în funcție de parametrii de filtrare
+    if (aspect) {
+      query['aspects.name'] = aspect;
+    }
+    
+    if (featherColor) {
+      query['featherColors.name'] = featherColor;
+    }
+    
+    if (habitat) {
+      query['habitats.name'] = habitat;
+    }
+    
+    const birds = await Bird.find(query);
+    
+    // Procesează păsările pentru a avea URL-uri complete
+    const processedBirds = birds.map(processBirdObject);
+    
+    res.json(processedBirds);
+  } catch (error) {
+    console.error('Eroare la filtrarea păsărilor:', error);
+    res.status(500).json({ message: 'Eroare la filtrarea păsărilor', error: error.message });
+  }
+};
+
+// Crează o pasăre nouă
+exports.createBird = async (req, res) => {
+  try {
+    const bird = new Bird(req.body);
+    const savedBird = await bird.save();
+    
+    // Procesează pasărea nou salvată
+    const processedBird = processBirdObject(savedBird);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Pasăre creată cu succes',
+      bird: processedBird
+    });
+  } catch (err) {
+    console.error('Eroare la crearea păsării:', err.message);
+    res.status(400).json({ 
+      success: false,
+      message: err.message 
+    });
+  }
+};
+
+// Actualizează o pasăre
+exports.updateBird = async (req, res) => {
+  try {
+    const birdId = req.params.id;
+    const updates = req.body;
+
+    const updatedBird = await Bird.findByIdAndUpdate(
+      birdId,
+      updates,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedBird) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Pasărea nu a fost găsită' 
+      });
+    }
+
+    // Procesează pasărea actualizată
+    const processedBird = processBirdObject(updatedBird);
+    
+    res.json({ 
+      success: true, 
+      message: 'Pasăre actualizată cu succes', 
+      bird: processedBird 
+    });
+  } catch (error) {
+    console.error('Eroare la actualizarea păsării:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Eroare la actualizarea păsării', 
+      error: error.message 
+    });
+  }
+};
+
+// Șterge o pasăre
+exports.deleteBird = async (req, res) => {
+  try {
+    const birdId = req.params.id;
+    const bird = await Bird.findById(birdId);
+
+    if (!bird) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Pasărea nu a fost găsită' 
+      });
+    }
+
+    // Șterge fișierele asociate (imagine și audio)
+    const filesToDelete = [];
+    
+    if (bird.image) {
+      filesToDelete.push(path.join(__dirname, '../../..', 'client/public/Images', bird.image));
+    }
+    
+    if (bird.audio) {
+      filesToDelete.push(path.join(__dirname, '../../..', 'client/public/Images', bird.audio));
+    }
+
+    // Șterge imaginile din array-uri (aspecte, culori, habitate)
+    const arrayFields = ['aspects', 'featherColors', 'habitats'];
+    
+    for (const field of arrayFields) {
+      if (bird[field] && bird[field].length > 0) {
+        for (const item of bird[field]) {
+          if (item.image) {
+            filesToDelete.push(path.join(__dirname, '../../..', 'client/public/Images', item.image));
+          }
         }
-        
-        // Procesează habitatele
-        if (bird.habitats && Array.isArray(bird.habitats)) {
-          bird.habitats.forEach(habitat => {
-            if (habitat && habitat.name && !habitatsSet.has(habitat.name)) {
-              habitatsSet.add(habitat.name);
-              habitats.push({
-                name: habitat.name,
-                image: resolveImageUrl(habitat.image)
-              });
-            }
-          });
+      }
+    }
+
+    // Șterge fișierele fizic
+    for (const filePath of filesToDelete) {
+      try {
+        await fs.access(filePath); // Verifică dacă fișierul există
+        await fs.unlink(filePath); // Șterge fișierul
+      } catch (err) {
+        // Ignoră erorile dacă fișierul nu există
+        if (err.code !== 'ENOENT') {
+          console.error(`Eroare la ștergerea fișierului ${filePath}:`, err);
         }
+      }
+    }
+
+    // Șterge pasărea din baza de date
+    await Bird.findByIdAndDelete(birdId);
+
+    res.json({ 
+      success: true, 
+      message: 'Pasăre ștearsă cu succes' 
+    });
+  } catch (error) {
+    console.error('Eroare la ștergerea păsării:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Eroare la ștergerea păsării', 
+      error: error.message 
+    });
+  }
+};
+
+// Încarcă un fișier (imagine sau audio) pentru o pasăre
+exports.uploadBirdFile = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Niciun fișier încărcat' 
       });
-      
-      // Trimite opțiunile de filtrare
-      res.json({
-        aspects,
-        featherColors,
-        habitats
+    }
+
+    const filename = req.file.filename;
+    let fileUrl;
+    let type;
+    
+    if (req.file.mimetype.startsWith('audio/')) {
+      fileUrl = `${config.uploadUrl}/sounds/${filename}`;
+      type = 'audio';
+    } else {
+      fileUrl = `${config.uploadUrl}/Images/${filename}`;
+      type = 'image';
+    }
+
+    // Dacă există un fișier vechi și trebuie înlocuit
+    if (req.body.oldFilePath) {
+      try {
+        const oldFilePath = path.join(
+          __dirname, 
+          '../../..', 
+          'client/public/Images', 
+          req.body.oldFilePath
+        );
+        await fs.access(oldFilePath); // Verifică dacă fișierul există
+        await fs.unlink(oldFilePath); // Șterge fișierul vechi
+      } catch (err) {
+        // Ignoră erorile dacă fișierul nu există
+        if (err.code !== 'ENOENT') {
+          console.error('Eroare la ștergerea fișierului vechi:', err);
+        }
+      }
+    }
+
+    res.json({
+      success: true, 
+      file: {
+        filename: filename,
+        path: filename,
+        fullUrl: fileUrl,
+        type: type
+      }
+    });
+  } catch (error) {
+    console.error('Eroare la încărcarea fișierului:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Eroare la încărcarea fișierului', 
+      error: error.message 
+    });
+  }
+};
+
+// Șterge un fișier
+exports.deleteFile = async (req, res) => {
+  try {
+    const { filePath } = req.body;
+
+    if (!filePath) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Calea fișierului nu a fost specificată' 
       });
-    } catch (error) {
-      console.error('Eroare la obținerea opțiunilor de filtrare:', error);
-      res.status(500).json({ message: 'Eroare la obținerea opțiunilor de filtrare', error: error.message });
     }
-  };
-  
-  // Filtrează păsările după criterii
-  exports.filterBirds = async (req, res) => {
+
+    const fullFilePath = path.join(
+      __dirname, 
+      '../../..', 
+      'client/public/Images', 
+      filePath
+    );
+
     try {
-      const { aspect, featherColor, habitat } = req.query;
-      
-      let query = {};
-      
-      // Construiește query-ul în funcție de parametrii de filtrare
-      if (aspect) {
-        query['aspects.name'] = aspect;
-      }
-      
-      if (featherColor) {
-        query['featherColors.name'] = featherColor;
-      }
-      
-      if (habitat) {
-        query['habitats.name'] = habitat;
-      }
-      
-      const birds = await Bird.find(query);
-      
-      // Procesează păsările pentru a avea URL-uri complete
-      const processedBirds = birds.map(processBirdObject);
-      
-      res.json(processedBirds);
-    } catch (error) {
-      console.error('Eroare la filtrarea păsărilor:', error);
-      res.status(500).json({ message: 'Eroare la filtrarea păsărilor', error: error.message });
-    }
-  };
-  
-  // Alte metode pentru operații CRUD pot fi adăugate aici
-  exports.createBird = async (req, res) => {
-    try {
-      const bird = new Bird(req.body);
-      const savedBird = await bird.save();
-      
-      // Procesează pasărea nou salvată
-      const processedBird = processBirdObject(savedBird);
-      
-      res.status(201).json(processedBird);
-    } catch (err) {
-      console.error('Eroare la crearea păsării:', err.message);
-      res.status(400).json({ message: err.message });
-    }
-  };
-  
-  exports.updateBird = async (req, res) => {
-    try {
-      const bird = await Bird.findByIdAndUpdate(
-        req.params.id, 
-        req.body,
-        { new: true, runValidators: true }
-      );
-      
-      if (!bird) {
-        return res.status(404).json({ message: 'Pasărea nu a fost găsită' });
-      }
-      
-      // Procesează pasărea actualizată
-      const processedBird = processBirdObject(bird);
-      
-      res.json(processedBird);
-    } catch (err) {
-      console.error('Eroare la actualizarea păsării:', err.message);
-      res.status(400).json({ message: err.message });
-    }
-  };
-  
-  exports.deleteBird = async (req, res) => {
-    try {
-      const bird = await Bird.findByIdAndDelete(req.params.id);
-      
-      if (!bird) {
-        return res.status(404).json({ message: 'Pasărea nu a fost găsită' });
-      }
-      
-      res.json({ message: 'Pasărea a fost ștearsă' });
-    } catch (err) {
-      console.error('Eroare la ștergerea păsării:', err.message);
-      res.status(500).json({ message: err.message });
-    }
-  };
-  
-  // Statistici și rapoarte (opțional)
-  exports.getBirdStats = async (req, res) => {
-    try {
-      const totalBirds = await Bird.countDocuments();
-      
-      // Statistici pe familii
-      const familyStats = await Bird.aggregate([
-        { $group: { _id: "$family", count: { $sum: 1 } } },
-        { $sort: { count: -1 } }
-      ]);
-      
-      // Statistici pe ordine
-      const orderStats = await Bird.aggregate([
-        { $group: { _id: "$order", count: { $sum: 1 } } },
-        { $sort: { count: -1 } }
-      ]);
-      
-      res.json({
-        totalBirds,
-        familyStats,
-        orderStats
+      await fs.access(fullFilePath); // Verifică dacă fișierul există
+      await fs.unlink(fullFilePath); // Șterge fișierul
+      res.json({ 
+        success: true, 
+        message: 'Fișierul a fost șters cu succes' 
       });
     } catch (err) {
-      console.error('Eroare la obținerea statisticilor:', err.message);
-      res.status(500).json({ message: err.message });
+      if (err.code === 'ENOENT') {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Fișierul nu a fost găsit' 
+        });
+      }
+      throw err;
     }
-  };
-  
-  module.exports = exports;
+  } catch (error) {
+    console.error('Eroare la ștergerea fișierului:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Eroare la ștergerea fișierului', 
+      error: error.message 
+    });
+  }
+};
+
+// Statistici și rapoarte (opțional)
+exports.getBirdStats = async (req, res) => {
+  try {
+    const totalBirds = await Bird.countDocuments();
+    
+    // Statistici pe familii
+    const familyStats = await Bird.aggregate([
+      { $group: { _id: "$family", count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    // Statistici pe ordine
+    const orderStats = await Bird.aggregate([
+      { $group: { _id: "$order", count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    res.json({
+      totalBirds,
+      familyStats,
+      orderStats
+    });
+  } catch (err) {
+    console.error('Eroare la obținerea statisticilor:', err.message);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = exports;

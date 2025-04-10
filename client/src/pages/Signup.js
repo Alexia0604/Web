@@ -23,11 +23,44 @@ const Signup = () => {
         }));
     };
 
+    const validatePassword = (password) => {
+        const minLength = 6;
+        const hasUpperCase = /[A-Z]/.test(password);
+        const hasLowerCase = /[a-z]/.test(password);
+        const hasNumbers = /\d/.test(password);
+        const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+        const errors = [];
+        if (password.length < minLength) {
+            errors.push(`Parola trebuie să aibă cel puțin ${minLength} caractere`);
+        }
+        if (!hasUpperCase) {
+            errors.push('Parola trebuie să conțină cel puțin o literă mare');
+        }
+        if (!hasLowerCase) {
+            errors.push('Parola trebuie să conțină cel puțin o literă mică');
+        }
+        if (!hasNumbers) {
+            errors.push('Parola trebuie să conțină cel puțin o cifră');
+        }
+        if (!hasSpecialChar) {
+            errors.push('Parola trebuie să conțină cel puțin un caracter special (!@#$%^&*(),.?":{}|<>)');
+        }
+
+        return errors;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setFormError('');
         
         // Validare parolă
+        const passwordErrors = validatePassword(formData.password);
+        if (passwordErrors.length > 0) {
+            setFormError(passwordErrors.join('\n'));
+            return;
+        }
+
         if (formData.password !== formData.confirmPassword) {
             setFormError('Parolele nu coincid');
             return;

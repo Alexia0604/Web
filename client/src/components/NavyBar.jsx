@@ -4,6 +4,29 @@ import { motion } from 'framer-motion';
 import { FaTimes } from "react-icons/fa";
 import { CiMenuFries } from "react-icons/ci";
 import { useAuth } from "../context/AuthContext";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  IconButton,
+  Menu,
+  MenuItem,
+  Badge,
+  Box,
+  Avatar,
+  Divider,
+  ListItemIcon,
+  ListItemText
+} from '@mui/material';
+import {
+  Notifications as NotificationsIcon,
+  AccountCircle,
+  Logout,
+  Settings,
+  Circle as CircleIcon
+} from '@mui/icons-material';
+import axios from 'axios';
 
 const NavyBar = () => {
     const [click, setClick] = useState(false);
@@ -11,6 +34,10 @@ const NavyBar = () => {
     const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
     const { user, isAuthenticated, isAdmin, logout } = useAuth();
     const navigate = useNavigate();
+    const [anchorEl, setAnchorEl] = useState(null);
+    const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
+    const [notifications, setNotifications] = useState([]);
+    const [unreadCount, setUnreadCount] = useState(0);
     
     const dropdownRef = useRef(null);
     
@@ -62,6 +89,63 @@ const NavyBar = () => {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
+    // Funcție pentru a încărca notificările
+    const fetchNotifications = async () => {
+        try {
+            const response = await axios.get('/api/forum/notifications');
+            setNotifications(response.data);
+            setUnreadCount(response.data.filter(n => !n.read).length);
+        } catch (error) {
+            console.error('Eroare la încărcarea notificărilor:', error);
+        }
+    };
+
+    // Încărcăm notificările la montarea componentei și când utilizatorul este autentificat
+    useEffect(() => {
+        if (isAuthenticated) {
+            fetchNotifications();
+            // Reîmprospătăm notificările la fiecare minut
+            const interval = setInterval(fetchNotifications, 60000);
+            return () => clearInterval(interval);
+        }
+    }, [isAuthenticated]);
+
+    const handleNotificationsClick = (event) => {
+        setNotificationsAnchorEl(event.currentTarget);
+    };
+
+    const handleNotificationsClose = () => {
+        setNotificationsAnchorEl(null);
+    };
+
+    const handleNotificationClick = async (notification) => {
+        try {
+            // Marcăm notificarea ca citită
+            await axios.put(`/api/forum/notifications/${notification._id}/read`);
+            
+            // Navigăm către topic
+            if (notification.type === 'new_topic') {
+                navigate(`/forum/topic/${notification.topic._id}`);
+            } else {
+                navigate(`/forum/topic/${notification.topic._id}#comment-${notification.comment}`);
+            }
+            
+            handleNotificationsClose();
+            fetchNotifications();
+        } catch (error) {
+            console.error('Eroare la procesarea notificării:', error);
+        }
+    };
+
+    const handleMarkAllRead = async () => {
+        try {
+            await axios.put('/api/forum/notifications/read-all');
+            fetchNotifications();
+        } catch (error) {
+            console.error('Eroare la marcarea notificărilor ca citite:', error);
+        }
+    };
+
     const navVariants = {
         hidden: { opacity: 0, y: -50 },
         visible: { 
@@ -91,7 +175,8 @@ const NavyBar = () => {
     const baseMenuItems = [
         { title: "Acasă", path: "/" },
         { title: "Enciclopedie", path: "/encyclopedia" },
-        { title: "Căutare", path: "/search" }
+        { title: "Căutare", path: "/search" },
+        { title: "Forum", path: "/forum" }
     ];
     
     // Itemi de meniu pentru utilizatori autentificați (user și admin)
@@ -252,46 +337,100 @@ const NavyBar = () => {
                             transition={{ delay: 0.7 }}
                         >
                             {isAuthenticated ? (
-                                <div className="relative" ref={dropdownRef}>
-                                    <button 
-                                        onClick={toggleProfileDropdown}
-                                        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center ${
-                                            scrolled 
-                                            ? "text-indigo-600 hover:bg-indigo-50" 
-                                            : "text-white hover:bg-indigo-500"
-                                        }`}
+                                <>
+                                    {/* Buton notificări */}
+                                    <IconButton
+                                        color="inherit"
+                                        onClick={handleNotificationsClick}
+                                        sx={{ color: scrolled ? 'inherit' : 'white' }}
                                     >
-                                        {user.username || 'Profil'}
-                                        <svg 
-                                            className={`ml-2 w-4 h-4 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} 
-                                            fill="none" 
-                                            stroke="currentColor" 
-                                            viewBox="0 0 24 24" 
-                                            xmlns="http://www.w3.org/2000/svg"
-                                        >
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                    </button>
-                                    
-                                    {/* Dropdown menu - acum controlat de state, nu de hover */}
-                                    {profileDropdownOpen && (
-                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                                            <Link
-                                                to="/profile"
-                                                className="block px-4 py-2 text-gray-800 hover:bg-indigo-50"
-                                                onClick={() => setProfileDropdownOpen(false)}
-                                            >
-                                                Profil
-                                            </Link>
-                                            <button
-                                                onClick={handleLogout}
-                                                className="block w-full text-left px-4 py-2 text-gray-800 hover:bg-indigo-50"
-                                            >
-                                                Deconectare
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
+                                        <Badge badgeContent={unreadCount} color="error">
+                                            <NotificationsIcon />
+                                        </Badge>
+                                    </IconButton>
+
+                                    {/* Meniu notificări */}
+                                    <Menu
+                                        anchorEl={notificationsAnchorEl}
+                                        open={Boolean(notificationsAnchorEl)}
+                                        onClose={handleNotificationsClose}
+                                        PaperProps={{
+                                            sx: { width: 350, maxHeight: 400 }
+                                        }}
+                                    >
+                                        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Typography variant="h6">Notificări</Typography>
+                                            {unreadCount > 0 && (
+                                                <Button size="small" onClick={handleMarkAllRead}>
+                                                    Marchează toate ca citite
+                                                </Button>
+                                            )}
+                                        </Box>
+                                        <Divider />
+                                        {notifications.length === 0 ? (
+                                            <MenuItem disabled>
+                                                <ListItemText primary="Nu ai notificări" />
+                                            </MenuItem>
+                                        ) : (
+                                            notifications.map((notification) => (
+                                                <MenuItem
+                                                    key={notification._id}
+                                                    onClick={() => handleNotificationClick(notification)}
+                                                    sx={{
+                                                        backgroundColor: notification.read ? 'inherit' : 'action.hover',
+                                                        whiteSpace: 'normal'
+                                                    }}
+                                                >
+                                                    <ListItemIcon>
+                                                        {!notification.read && (
+                                                            <CircleIcon color="primary" sx={{ fontSize: 12 }} />
+                                                        )}
+                                                    </ListItemIcon>
+                                                    <ListItemText
+                                                        primary={notification.message}
+                                                        secondary={new Date(notification.createdAt).toLocaleString()}
+                                                    />
+                                                </MenuItem>
+                                            ))
+                                        )}
+                                    </Menu>
+
+                                    {/* Restul meniului pentru utilizator autentificat */}
+                                    <IconButton
+                                        color="inherit"
+                                        onClick={(e) => setAnchorEl(e.currentTarget)}
+                                    >
+                                        {user?.profileImage ? (
+                                            <Avatar src={user.profileImage} sx={{ width: 32, height: 32 }} />
+                                        ) : (
+                                            <AccountCircle />
+                                        )}
+                                    </IconButton>
+                                    <Menu
+                                        anchorEl={anchorEl}
+                                        open={Boolean(anchorEl)}
+                                        onClose={() => setAnchorEl(null)}
+                                    >
+                                        <MenuItem onClick={() => {
+                                            setAnchorEl(null);
+                                            navigate('/profile');
+                                        }}>
+                                            <ListItemIcon>
+                                                <Settings fontSize="small" />
+                                            </ListItemIcon>
+                                            <ListItemText primary="Profil" />
+                                        </MenuItem>
+                                        <MenuItem onClick={() => {
+                                            setAnchorEl(null);
+                                            logout();
+                                        }}>
+                                            <ListItemIcon>
+                                                <Logout fontSize="small" />
+                                            </ListItemIcon>
+                                            <ListItemText primary="Deconectare" />
+                                        </MenuItem>
+                                    </Menu>
+                                </>
                             ) : (
                                 <>
                                     <Link to="/login">

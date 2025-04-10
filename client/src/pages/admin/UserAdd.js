@@ -27,43 +27,31 @@ const AdminUserAdd = () => {
     }));
   };
 
-  const handleFileUpload = async (file) => {
+  const handleFileUpload = async (event) => {
     try {
-      setIsUploading(true);
-      setUploadProgress(0);
-      setError(null);
-      
-      if (!file.type.startsWith('image/')) {
-        setError('Doar imaginile sunt permise pentru profilul utilizatorului.');
-        setIsUploading(false);
-        return;
-      }
-      
+      const file = event.target.files[0];
+      if (!file) return;
+
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await axios.post('http://localhost:5000/api/admin/upload-bird-file', formData, {
-        withCredentials: true,
+      const response = await axios.post('/api/admin/upload-bird-file', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          setUploadProgress(percentCompleted);
         }
       });
-      
-      if (response.data.success) {
-        setUser(prev => ({ ...prev, profileImage: response.data.file.filename }));
-        setSuccessMessage('Imaginea a fost încărcată cu succes');
-        setTimeout(() => setSuccessMessage(''), 3000);
-      }
+
+      setUser(prev => ({
+        ...prev,
+        profileImage: {
+          url: response.data.fullUrl,
+          public_id: response.data.public_id,
+          filename: response.data.filename
+        }
+      }));
     } catch (error) {
-      setError(error.response?.data?.message || 'Eroare la încărcarea imaginii de profil');
-      setTimeout(() => setError(null), 3000);
-    } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
+      console.error('Eroare la încărcarea imaginii de profil:', error);
+      setError('Eroare la încărcarea imaginii de profil');
     }
   };
 
@@ -80,7 +68,7 @@ const AdminUserAdd = () => {
   const handleProfileImageSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      handleFileUpload(file);
+      handleFileUpload(e);
     }
   };
 
@@ -247,7 +235,7 @@ const AdminUserAdd = () => {
               <input
                 type="text"
                 name="profileImage"
-                value={user.profileImage}
+                value={user.profileImage.filename}
                 onChange={handleInputChange}
                 className="flex-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 placeholder="Nume fișier sau calea către imagine"
@@ -270,10 +258,10 @@ const AdminUserAdd = () => {
                 className="hidden"
               />
             </div>
-            {user.profileImage && (
+            {user.profileImage.filename && (
               <div className="mt-2 border p-1 inline-block">
                 <img
-                  src={getImageUrl(user.profileImage)}
+                  src={getImageUrl(user.profileImage.filename)}
                   alt="Profile"
                   className="w-auto h-auto"
                 />

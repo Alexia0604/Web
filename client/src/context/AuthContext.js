@@ -13,51 +13,29 @@ export const AuthProvider = ({ children }) => {
 
   axios.defaults.withCredentials = true;
 
-  const checkLoggedIn = async (retryCount = 0, maxRetries = 2) => {
+  const checkAuthStatus = async () => {
     try {
       console.log('Checking authentication status...');
-      
-      const response = await axios.get(`${API_URL}/auth/me`, {
-        withCredentials: true,
-      });
-
-      console.log('Response from /auth/me:', response.data);
-
-      if (response.data.success && response.data.user) {
-        const userData = response.data.user;
-        setUser(userData);
-        setIsAuthenticated(true);
-        console.log('User authenticated successfully:', userData);
-      } else {
-        console.log('No valid user data in response');
-        setUser(null);
-        setIsAuthenticated(false);
-      }
+      const response = await axios.get(`${API_URL}/auth/me`);
+      const userData = response.data.user;
+      setUser(userData);
+      setIsAuthenticated(true);
+      setLoading(false);
+      console.log('Auth state updated:', userData);
     } catch (error) {
-      console.error('Error checking auth status:', error.response?.data || error.message);
-      console.error('Error status:', error.response?.status);
-      if (error.response?.status === 401 && retryCount < maxRetries) {
-        console.log(`Retrying auth check (${retryCount + 1}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return checkLoggedIn(retryCount + 1, maxRetries);
-      }
-      if (error.response?.status === 404) {
-        console.log('User not found, clearing auth state');
-        setUser(null);
-        setIsAuthenticated(false);
-        // Opțional: șterge cookie-ul din browser
-        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+      console.error('Error checking auth status:', error);
+      if (error.response) {
+        console.error('Error status:', error.response.status);
       }
       setUser(null);
       setIsAuthenticated(false);
-    } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
     console.log('Initial auth check on mount');
-    checkLoggedIn();
+    checkAuthStatus();
   }, []);
 
   const login = async (formData) => {
@@ -81,6 +59,35 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error('Login error:', err.response?.data || err.message);
       setError(err.response?.data?.message || 'Eroare la autentificare');
+      setUser(null);
+      setIsAuthenticated(false);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (formData) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await axios.post(`${API_URL}/auth/register`, formData, {
+        withCredentials: true,
+      });
+
+      console.log('Register response:', res.data);
+
+      if (res.data.success && res.data.user) {
+        setUser(res.data.user);
+        setIsAuthenticated(true);
+        return res.data;
+      } else {
+        throw new Error('Registration failed: No user data returned');
+      }
+    } catch (err) {
+      console.error('Register error:', err.response?.data || err.message);
+      setError(err.response?.data?.message || 'Eroare la înregistrare');
       setUser(null);
       setIsAuthenticated(false);
       throw err;
@@ -139,13 +146,14 @@ export const AuthProvider = ({ children }) => {
         loading,
         error,
         login,
+        register,
         logout,
         isAuthenticated,
         isAdmin: user?.role === 'admin',
         isGuest: !user,
         updateProfileImage,
         hasPermission,
-        checkLoggedIn,
+        checkAuthStatus,
       }}
     >
       {children}

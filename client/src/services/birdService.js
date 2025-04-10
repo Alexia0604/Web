@@ -3,16 +3,43 @@ import axios from 'axios';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Funcție pentru rezolvarea URL-urilor de imagini
-const resolveImageUrl = (imagePath) => {
-  // Dacă imaginea este deja un URL complet, returnează-l
-  if (imagePath?.startsWith('http')) return imagePath;
+const resolveImageUrl = (image) => {
+  if (!image) return '/images/placeholder-bird.png';
   
-  // Altfel, folosește URL-ul de bază pentru imagini
-  return imagePath 
-    ? (imagePath.startsWith('/') 
-      ? imagePath 
-      : `/images/${imagePath}`)
-    : '/images/placeholder-bird.png';
+  // Dacă imaginea este un obiect Cloudinary
+  if (typeof image === 'object' && image.url) {
+    return image.url;
+  }
+  
+  // Dacă imaginea este un string (URL sau path)
+  if (typeof image === 'string') {
+    if (image.startsWith('http')) {
+      return image;
+    }
+    return `/images/${image}`;
+  }
+  
+  return '/images/placeholder-bird.png';
+};
+
+// Funcție pentru rezolvarea URL-urilor audio
+const resolveAudioUrl = (audio) => {
+  if (!audio) return '';
+  
+  // Dacă audio este un obiect Cloudinary
+  if (typeof audio === 'object' && audio.url) {
+    return audio.url;
+  }
+  
+  // Dacă audio este un string (URL sau path)
+  if (typeof audio === 'string') {
+    if (audio.startsWith('http')) {
+      return audio;
+    }
+    return `/audio/${audio}`;
+  }
+  
+  return '';
 };
 
 // Procesează o pasăre pentru a avea URL-uri corecte
@@ -21,18 +48,19 @@ const processBird = (bird) => {
 
   return {
     ...bird,
-    imageUrl: resolveImageUrl(bird.imageUrl || bird.image),
+    imageUrl: resolveImageUrl(bird.image),
+    audioUrl: resolveAudioUrl(bird.audio),
     aspects: bird.aspects?.map(aspect => ({
       ...aspect,
-      imageUrl: resolveImageUrl(aspect.imageUrl || aspect.image)
+      imageUrl: resolveImageUrl(aspect.image)
     })),
     featherColors: bird.featherColors?.map(color => ({
       ...color,
-      imageUrl: resolveImageUrl(color.imageUrl || color.image)
+      imageUrl: resolveImageUrl(color.image)
     })),
     habitats: bird.habitats?.map(habitat => ({
       ...habitat,
-      imageUrl: resolveImageUrl(habitat.imageUrl || habitat.image)
+      imageUrl: resolveImageUrl(habitat.image)
     }))
   };
 };

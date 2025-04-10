@@ -62,19 +62,52 @@ const AdminBirdAdd = () => {
     }));
   };
 
-  const handleFileUpload = async (file, fieldType, arrayField = null, arrayIndex = null) => {
+  const getImageUrl = (image) => {
+    if (!image) return '/Images/placeholder-bird.png';
+    if (typeof image === 'object') {
+      if (image.url) return image.url;
+      if (image.secure_url) return image.secure_url;
+    }
+    if (typeof image === 'string') {
+      if (image.startsWith('http')) return image;
+      return `http://localhost:5000/Images/${image}`;
+    }
+    return '/Images/placeholder-bird.png';
+  };
+
+  const getAudioUrl = (audio) => {
+    if (!audio) return '';
+    if (typeof audio === 'object' && audio.url) {
+      return audio.url;
+    }
+    if (typeof audio === 'string') {
+      if (audio.startsWith('http')) {
+        return audio;
+      }
+      return `http://localhost:5000/Images/${audio}`;
+    }
+    return '';
+  };
+
+  const handleFileUpload = async (event, type) => {
     try {
       setIsUploading(true);
-      setUploadProgress(0);
       setError(null);
-      
-      // Creăm FormData
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // Verificăm dimensiunea fișierului
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        setError('Fișierul este prea mare. Dimensiunea maximă permisă este de 10MB.');
+        return;
+      }
+
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('uploadType', type);
 
-      // Facem cererea către server
-      const response = await axios.post('http://localhost:5000/api/admin/upload-bird-file', formData, {
-        withCredentials: true,
+      const response = await axios.post('/api/admin/upload-bird-file', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
@@ -85,78 +118,97 @@ const AdminBirdAdd = () => {
       });
 
       if (response.data.success) {
-        // Obținem calea fișierului încărcat
-        const fileData = response.data.file;
-        
-        // Actualizăm starea în funcție de tipul câmpului și dacă este parte dintr-un array
-        if (arrayField && typeof arrayIndex === 'number') {
-          // Pentru câmpuri array (albume, habitate, etc.)
-          setBird(prevBird => {
-            const updatedArray = [...prevBird[arrayField]];
-            
-            if (fileData.type === 'image') {
-              updatedArray[arrayIndex].image = fileData.filename;
-            } else if (fileData.type === 'audio') {
-              updatedArray[arrayIndex].audio = fileData.filename;
+        if (type === 'image') {
+          setBird(prev => ({
+            ...prev,
+            image: {
+              url: response.data.url,
+              public_id: response.data.public_id,
+              filename: response.data.filename
             }
-            
-            return {
-              ...prevBird,
-              [arrayField]: updatedArray
-            };
-          });
-        } else {
-          // Pentru câmpuri simple (imagine principală, audio principal)
-          setBird(prevBird => ({
-            ...prevBird,
-            [fieldType]: fileData.filename
+          }));
+        } else if (type === 'audio') {
+          setBird(prev => ({
+            ...prev,
+            audio: {
+              url: response.data.url,
+              public_id: response.data.public_id,
+              filename: response.data.filename
+            }
           }));
         }
-
-        setSuccessMessage(`Fișierul a fost încărcat cu succes`);
+        setUploadProgress(100);
+        setTimeout(() => {
+          setUploadProgress(0);
+          setIsUploading(false);
+        }, 1000);
+      } else {
+        throw new Error(response.data.error || 'Eroare la încărcarea fișierului');
       }
     } catch (error) {
       console.error('Eroare la încărcarea fișierului:', error);
-      setError('Eroare la încărcarea fișierului');
-    } finally {
-      setIsUploading(false);
+      setError(error.response?.data?.error || error.message || 'Eroare la încărcarea fișierului');
       setUploadProgress(0);
+      setIsUploading(false);
     }
   };
   
   const handleImageSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      handleFileUpload(file, 'image');
-    }
+    handleFileUpload(e, 'image');
   };
   
   const handleAudioSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      handleFileUpload(file, 'audio');
-    }
+    handleFileUpload(e, 'audio');
   };
 
   const handleArrayImageSelect = (e, arrayField, index) => {
-    const file = e.target.files[0];
-    if (file) {
-      handleFileUpload(file, 'image', arrayField, index);
-    }
+    handleFileUpload(e, 'image');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Verifică dacă toate câmpurile obligatorii sunt completate
-    if (!bird.name || !bird.scientificName || !bird.englishName || !bird.image || 
-        !bird.family || !bird.order || !bird.description) {
-      setError('Toate câmpurile marcate cu * sunt obligatorii');
-      return;
-    }
-    
     try {
-      const response = await axios.post('http://localhost:5000/api/birds', bird, {
+      setError(null);
+      
+      // Verifică dacă toate câmpurile obligatorii sunt completate
+      if (!bird.name || !bird.scientificName || !bird.englishName || 
+          !bird.family || !bird.order || !bird.description) {
+        setError('Toate câmpurile marcate cu * sunt obligatorii');
+        return;
+      }
+
+      // Verifică dacă există o imagine principală
+      if (!bird.image || (!bird.image.url && typeof bird.image !== 'string')) {
+        setError('Imaginea principală este obligatorie');
+        return;
+      }
+
+      // Pregătim datele pentru trimitere
+      const birdData = {
+        ...bird,
+        // Asigurăm-ne că imaginea principală este în formatul corect
+        image: typeof bird.image === 'string' ? { url: bird.image } : bird.image,
+        // Asigurăm-ne că audio este în formatul corect
+        audio: bird.audio ? (typeof bird.audio === 'string' ? { url: bird.audio } : bird.audio) : null,
+        // Procesăm aspectele
+        aspects: bird.aspects.map(aspect => ({
+          ...aspect,
+          image: typeof aspect.image === 'string' ? { url: aspect.image } : aspect.image
+        })).filter(aspect => aspect.name && aspect.image),
+        // Procesăm culorile penajului
+        featherColors: bird.featherColors.map(color => ({
+          ...color,
+          image: typeof color.image === 'string' ? { url: color.image } : color.image
+        })).filter(color => color.name && color.image),
+        // Procesăm habitatele
+        habitats: bird.habitats.map(habitat => ({
+          ...habitat,
+          image: typeof habitat.image === 'string' ? { url: habitat.image } : habitat.image
+        })).filter(habitat => habitat.name && habitat.image)
+      };
+
+      const response = await axios.post('/api/admin/birds', birdData, {
         withCredentials: true
       });
       
@@ -171,30 +223,182 @@ const AdminBirdAdd = () => {
     }
   };
 
-  // Helper to create proper image URL
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return '/Images/placeholder-bird.png';
-    
-    // Already has http or https prefix
-    if (imagePath.startsWith('http')) {
-      return `${imagePath}?t=${Date.now()}`;
-    }
-    
-    // Use the filename with the Images directory path
-    return `http://localhost:5000/Images/${imagePath}?t=${Date.now()}`;
+  // Render image preview
+  const renderImagePreview = (imageData, field, arrayField = null, index = null) => {
+    if (!imageData || !imageData.url) return null;
+
+    return (
+      <div className="mt-2">
+        <img
+          src={imageData.url}
+          alt="Preview"
+          className="max-w-xs h-auto"
+          onError={(e) => {
+            console.error('Eroare la încărcarea imaginii:', imageData.url);
+            e.target.style.display = 'none';
+          }}
+        />
+      </div>
+    );
   };
 
-  // Helper to create proper audio URL
-  const getAudioUrl = (audioPath) => {
-    if (!audioPath) return '';
-    
-    // Toate fișierele audio sunt în Images, indiferent de extensie
-    if (audioPath.startsWith('http')) {
-      return audioPath;
+  const handleAspectImageUpload = async (event, index) => {
+    try {
+      setIsUploading(true);
+      setError(null);
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('uploadType', 'aspect');
+
+      const response = await axios.post('/api/admin/upload-bird-file', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        }
+      });
+
+      if (response.data.success) {
+        const newAspects = [...bird.aspects];
+        newAspects[index] = {
+          ...newAspects[index],
+          image: {
+            url: response.data.url,
+            public_id: response.data.public_id,
+            filename: response.data.filename
+          }
+        };
+
+        setBird(prev => ({
+          ...prev,
+          aspects: newAspects
+        }));
+
+        setUploadProgress(100);
+        setTimeout(() => {
+          setUploadProgress(0);
+          setIsUploading(false);
+        }, 1000);
+      } else {
+        throw new Error(response.data.error || 'Eroare la încărcarea imaginii pentru aspect');
+      }
+    } catch (error) {
+      console.error('Eroare la încărcarea imaginii pentru aspect:', error);
+      setError(error.response?.data?.error || error.message || 'Eroare la încărcarea imaginii pentru aspect');
+      setUploadProgress(0);
+      setIsUploading(false);
     }
-    
-    // Folosim numele fișierului cu calea către directorul Images
-    return `http://localhost:5000/Images/${audioPath}`;
+  };
+
+  const handleFeatherColorImageUpload = async (event, index) => {
+    try {
+      setIsUploading(true);
+      setError(null);
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('uploadType', 'feather');
+
+      const response = await axios.post('/api/admin/upload-bird-file', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        }
+      });
+
+      if (response.data.success) {
+        const newFeatherColors = [...bird.featherColors];
+        newFeatherColors[index] = {
+          ...newFeatherColors[index],
+          image: {
+            url: response.data.url,
+            public_id: response.data.public_id,
+            filename: response.data.filename
+          }
+        };
+
+        setBird(prev => ({
+          ...prev,
+          featherColors: newFeatherColors
+        }));
+
+        setUploadProgress(100);
+        setTimeout(() => {
+          setUploadProgress(0);
+          setIsUploading(false);
+        }, 1000);
+      } else {
+        throw new Error(response.data.error || 'Eroare la încărcarea imaginii pentru culoarea penajului');
+      }
+    } catch (error) {
+      console.error('Eroare la încărcarea imaginii pentru culoarea penajului:', error);
+      setError(error.response?.data?.error || error.message || 'Eroare la încărcarea imaginii pentru culoarea penajului');
+      setUploadProgress(0);
+      setIsUploading(false);
+    }
+  };
+
+  const handleHabitatImageUpload = async (event, index) => {
+    try {
+      setIsUploading(true);
+      setError(null);
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('uploadType', 'habitat');
+
+      const response = await axios.post('/api/admin/upload-bird-file', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        }
+      });
+
+      if (response.data.success) {
+        const newHabitats = [...bird.habitats];
+        newHabitats[index] = {
+          ...newHabitats[index],
+          image: {
+            url: response.data.url,
+            public_id: response.data.public_id,
+            filename: response.data.filename
+          }
+        };
+
+        setBird(prev => ({
+          ...prev,
+          habitats: newHabitats
+        }));
+
+        setUploadProgress(100);
+        setTimeout(() => {
+          setUploadProgress(0);
+          setIsUploading(false);
+        }, 1000);
+      } else {
+        throw new Error(response.data.error || 'Eroare la încărcarea imaginii pentru habitat');
+      }
+    } catch (error) {
+      console.error('Eroare la încărcarea imaginii pentru habitat:', error);
+      setError(error.response?.data?.error || error.message || 'Eroare la încărcarea imaginii pentru habitat');
+      setUploadProgress(0);
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -345,20 +549,12 @@ const AdminBirdAdd = () => {
               <input
                 type="file"
                 ref={imageFileInputRef}
-                onChange={handleImageSelect}
+                onChange={(e) => handleImageSelect(e)}
                 accept="image/*"
                 className="hidden"
               />
             </div>
-            {bird.image && (
-              <div className="mt-2 border p-1 inline-block">
-                <img 
-                  src={getImageUrl(bird.image)}
-                  alt={bird.name}
-                  className="w-auto h-auto"
-                />
-              </div>
-            )}
+            {bird.image && renderImagePreview(bird.image, 'image')}
           </div>
 
           <div>
@@ -386,7 +582,7 @@ const AdminBirdAdd = () => {
               <input
                 type="file"
                 ref={audioFileInputRef}
-                onChange={handleAudioSelect}
+                onChange={(e) => handleAudioSelect(e)}
                 accept="audio/*"
                 className="hidden"
               />
@@ -472,7 +668,7 @@ const AdminBirdAdd = () => {
                   <input
                     type="file"
                     ref={el => aspectImageRefs.current[index] = el}
-                    onChange={e => handleArrayImageSelect(e, 'aspects', index)}
+                    onChange={(e) => handleAspectImageUpload(e, index)}
                     accept="image/*"
                     className="hidden"
                   />
@@ -546,7 +742,7 @@ const AdminBirdAdd = () => {
                   <input
                     type="file"
                     ref={el => featherColorImageRefs.current[index] = el}
-                    onChange={e => handleArrayImageSelect(e, 'featherColors', index)}
+                    onChange={(e) => handleFeatherColorImageUpload(e, index)}
                     accept="image/*"
                     className="hidden"
                   />
@@ -620,7 +816,7 @@ const AdminBirdAdd = () => {
                   <input
                     type="file"
                     ref={el => habitatImageRefs.current[index] = el}
-                    onChange={e => handleArrayImageSelect(e, 'habitats', index)}
+                    onChange={(e) => handleHabitatImageUpload(e, index)}
                     accept="image/*"
                     className="hidden"
                   />

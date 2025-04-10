@@ -52,24 +52,19 @@ router.get('/filter-options', auth.authenticate, async (req, res) => {
     const birds = await Bird.find({}, 'aspects featherColors habitats');
     
     // Vom colecta toate valorile unice aici
-    const aspectsSet = new Set();
-    const featherColorsSet = new Set();
-    const habitatsSet = new Set();
-    
-    // Object pentru a ține valorile unice cu imaginile lor
-    const aspects = [];
-    const featherColors = [];
-    const habitats = [];
+    const aspectsMap = new Map();
+    const featherColorsMap = new Map();
+    const habitatsMap = new Map();
     
     // Procesează toate păsările pentru a extrage opțiunile unice
     birds.forEach(bird => {
       // Procesează aspectele
       if (bird.aspects && Array.isArray(bird.aspects)) {
         bird.aspects.forEach(aspect => {
-          if (aspect && aspect.name && !aspectsSet.has(aspect.name)) {
-            aspectsSet.add(aspect.name);
-            aspects.push({
-              name: aspect.name,
+          if (aspect && aspect.title && !aspectsMap.has(aspect.title)) {
+            aspectsMap.set(aspect.title, {
+              name: aspect.title,
+              description: aspect.description,
               image: aspect.image
             });
           }
@@ -79,10 +74,10 @@ router.get('/filter-options', auth.authenticate, async (req, res) => {
       // Procesează culorile penajului
       if (bird.featherColors && Array.isArray(bird.featherColors)) {
         bird.featherColors.forEach(color => {
-          if (color && color.name && !featherColorsSet.has(color.name)) {
-            featherColorsSet.add(color.name);
-            featherColors.push({
-              name: color.name,
+          if (color && color.color && !featherColorsMap.has(color.color)) {
+            featherColorsMap.set(color.color, {
+              name: color.color,
+              description: color.description,
               image: color.image
             });
           }
@@ -92,16 +87,21 @@ router.get('/filter-options', auth.authenticate, async (req, res) => {
       // Procesează habitatele
       if (bird.habitats && Array.isArray(bird.habitats)) {
         bird.habitats.forEach(habitat => {
-          if (habitat && habitat.name && !habitatsSet.has(habitat.name)) {
-            habitatsSet.add(habitat.name);
-            habitats.push({
+          if (habitat && habitat.name && !habitatsMap.has(habitat.name)) {
+            habitatsMap.set(habitat.name, {
               name: habitat.name,
+              description: habitat.description,
               image: habitat.image
             });
           }
         });
       }
     });
+    
+    // Convertim Map-urile în array-uri
+    const aspects = Array.from(aspectsMap.values());
+    const featherColors = Array.from(featherColorsMap.values());
+    const habitats = Array.from(habitatsMap.values());
     
     // Trimite opțiunile de filtrare
     res.json({
@@ -124,11 +124,11 @@ router.get('/filter', auth.authenticate, async (req, res) => {
     
     // Construiește query-ul în funcție de parametrii de filtrare
     if (aspect) {
-      query['aspects.name'] = aspect;
+      query['aspects.title'] = aspect;
     }
     
     if (featherColor) {
-      query['featherColors.name'] = featherColor;
+      query['featherColors.color'] = featherColor;
     }
     
     if (habitat) {
@@ -137,7 +137,43 @@ router.get('/filter', auth.authenticate, async (req, res) => {
     
     const birds = await Bird.find(query);
     
-    res.json(birds);
+    // Procesăm imaginile pentru a returna URL-urile corecte
+    const processedBirds = birds.map(bird => {
+      const processedBird = bird.toObject();
+      
+      // Procesăm imaginea principală
+      if (processedBird.image && typeof processedBird.image === 'object') {
+        processedBird.displayImage = processedBird.image.url;
+      }
+
+      // Procesăm aspectele
+      if (processedBird.aspects) {
+        processedBird.aspects = processedBird.aspects.map(aspect => ({
+          ...aspect,
+          displayImage: aspect.image?.url || aspect.image
+        }));
+      }
+
+      // Procesăm culorile
+      if (processedBird.featherColors) {
+        processedBird.featherColors = processedBird.featherColors.map(color => ({
+          ...color,
+          displayImage: color.image?.url || color.image
+        }));
+      }
+
+      // Procesăm habitatele
+      if (processedBird.habitats) {
+        processedBird.habitats = processedBird.habitats.map(habitat => ({
+          ...habitat,
+          displayImage: habitat.image?.url || habitat.image
+        }));
+      }
+
+      return processedBird;
+    });
+    
+    res.json(processedBirds);
   } catch (error) {
     console.error('Eroare la filtrarea păsărilor:', error);
     res.status(500).json({ message: 'Eroare la filtrarea păsărilor', error: error.message });

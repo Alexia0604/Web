@@ -1,28 +1,17 @@
 const mongoose = require('mongoose');
 
-const BirdSchema = new mongoose.Schema({
+const birdSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
-    trim: true
-  },
-  image: {
-    type: String,
-    default: ''
-  },
-  audio: {
-    type: String,
-    default: ''
+    required: true
   },
   scientificName: {
     type: String,
-    required: true,
-    trim: true
+    required: true
   },
   englishName: {
     type: String,
-    required: true,
-    trim: true
+    required: true
   },
   family: {
     type: String,
@@ -36,20 +25,46 @@ const BirdSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  image: {
+    url: String,
+    public_id: String,
+    filename: String
+  },
+  audio: {
+    url: String,
+    public_id: String,
+    filename: String
+  },
   aspects: [{
-    name: String,
-    image: String
+    title: String,
+    description: String,
+    image: {
+      url: String,
+      public_id: String,
+      filename: String
+    }
   }],
   featherColors: [{
-    name: String,
-    image: String
+    color: String,
+    description: String,
+    image: {
+      url: String,
+      public_id: String,
+      filename: String
+    }
   }],
   habitats: [{
     name: String,
-    image: String
+    description: String,
+    image: {
+      url: String,
+      public_id: String,
+      filename: String
+    }
   }]
 }, {
-  timestamps: true
+  timestamps: true,
+  collection: 'birds'
 });
 
-module.exports = mongoose.model('Bird', BirdSchema);
+module.exports = mongoose.model('Bird', birdSchema, 'birds');
