@@ -29,19 +29,23 @@ const AdminUsers = () => {
 
   const handlePromoteToAdmin = async (userId) => {
     try {
-      await axios.put(`http://localhost:5000/api/admin/users/${userId}/make-admin`, {}, {
-        withCredentials: true
-      });
-      
-      // Actualizare stare locală
-      setUsers(users.map(user => 
+      const response = await axios.put(
+        `http://localhost:5000/api/admin/users/${userId}/role`,
+        { role: 'admin' }, // Trimitem noul rol în body
+        { withCredentials: true }
+      );
+      setUsers(users.map(user =>
         user._id === userId ? { ...user, role: 'admin' } : user
       ));
-      
       setSuccessMessage('Utilizatorul a fost promovat la administrator');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      setError('Eroare la promovarea utilizatorului');
+      console.error('Eroare promovare:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message
+      });
+      setError(err.response?.data?.message || 'Eroare la promovarea utilizatorului');
       setTimeout(() => setError(null), 3000);
     }
   };

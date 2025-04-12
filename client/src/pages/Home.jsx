@@ -1,8 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { useAuth } from "../context/AuthContext";
 
 const Home = () => {
+  const { isAuthenticated } = useAuth();
   const featureItems = [
     {
       title: "Enciclopedie",
@@ -332,18 +334,20 @@ const Home = () => {
               <p className="text-xl text-blue-100 mb-8 max-w-lg">
                 Creează un cont gratuit și începe să explorezi sute de specii de păsări din întreaga lume într-un mod interactiv și captivant.
               </p>
-              <Link to="/signup">
-                <motion.button 
-                  className="px-8 py-4 bg-white text-blue-700 font-semibold rounded-lg shadow-xl hover:shadow-2xl hover:bg-blue-50 transition-all duration-300 flex items-center"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Înregistrează-te Gratuit
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </motion.button>
-              </Link>
+              {!isAuthenticated && (
+                <Link to="/signup">
+                  <motion.button 
+                    className="px-8 py-4 bg-white text-blue-700 font-semibold rounded-lg shadow-xl hover:shadow-2xl hover:bg-blue-50 transition-all duration-300 flex items-center"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Înregistrează-te Gratuit
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </motion.button>
+                </Link>
+              )}
               
               {/* Counter stats */}
               <div className="mt-12 grid grid-cols-3 gap-4">
