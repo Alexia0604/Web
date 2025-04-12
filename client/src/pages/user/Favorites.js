@@ -6,14 +6,28 @@ import { useAuth } from '../../context/AuthContext';
 
 // Funcție pentru a rezolva URL-ul imaginii - identică cu cea din BirdEncyclopedia
 const resolveImageUrl = (bird, field = 'imageUrl') => {
+  if (!bird) return '/images/placeholder-bird.png';
+  
   const imageFields = [field, 'image', 'imageUrl'];
   for (let imageField of imageFields) {
     const url = bird[imageField];
-    if (url) {
+    
+    // Verificare pentru structura nested
+    if (typeof url === 'object' && url !== null) {
+      if (url.url && typeof url.url === 'string') {
+        if (url.url.startsWith('http')) return url.url;
+        return url.url.startsWith('/') ? url.url : `/images/${url.url}`;
+      }
+      continue;
+    }
+    
+    // Verificare pentru string direct
+    if (url && typeof url === 'string') {
       if (url.startsWith('http')) return url;
       return url.startsWith('/') ? url : `/images/${url}`;
     }
   }
+  
   return '/images/placeholder-bird.png';
 };
 

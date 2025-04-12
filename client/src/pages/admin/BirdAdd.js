@@ -277,19 +277,24 @@ const AdminBirdAdd = () => {
         image: typeof bird.image === 'string' ? { url: bird.image } : bird.image,
         // Asigurăm-ne că audio este în formatul corect
         audio: bird.audio ? (typeof bird.audio === 'string' ? { url: bird.audio } : bird.audio) : null,
-        // Procesăm aspectele și eliminăm proprietatea selectedId care e folosită doar în UI
+        // Procesăm aspectele cu câmpurile title și name (conform cerinței)
         aspects: bird.aspects.map(aspect => ({
-          name: aspect.name,
+          title: aspect.name, // Pentru compatibilitate cu modelul Bird.js
+          name: aspect.name,  // Pentru filtrare
+          description: '',
           image: typeof aspect.image === 'string' ? { url: aspect.image } : aspect.image
         })).filter(aspect => aspect.name && aspect.image?.url),
-        // Procesăm culorile penajului și eliminăm proprietatea selectedId
+        // Procesăm culorile penajului cu câmpurile color și name (conform cerinței)
         featherColors: bird.featherColors.map(color => ({
-          name: color.name,
+          color: color.name, // Pentru compatibilitate cu modelul Bird.js
+          name: color.name,  // Pentru filtrare
+          description: '',
           image: typeof color.image === 'string' ? { url: color.image } : color.image
         })).filter(color => color.name && color.image?.url),
-        // Procesăm habitatele și eliminăm proprietatea selectedId
+        // Procesăm habitatele cu câmpul name (deja existent)
         habitats: bird.habitats.map(habitat => ({
-          name: habitat.name,
+          name: habitat.name, // Numele este deja corect
+          description: '',
           image: typeof habitat.image === 'string' ? { url: habitat.image } : habitat.image
         })).filter(habitat => habitat.name && habitat.image?.url)
       };

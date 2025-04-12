@@ -94,66 +94,24 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
-// PUT schimbă rolul utilizatorului în admin
-router.put('/users/:id/make-admin', async (req, res) => {
+// PUT schimbă rolul utilizatorului
+router.put('/users/:id/role', async (req, res) => {
   try {
+    const { role } = req.body;
     const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { role: 'admin' },
+      req.params.id, 
+      { role }, 
       { new: true }
-    ).select('-password');
-    
+    );
+
     if (!user) {
       return res.status(404).json({ message: 'Utilizatorul nu a fost găsit' });
     }
-    
+
     res.json({ message: 'Utilizator promovat la rol de admin', user });
   } catch (error) {
     console.error('Eroare la schimbarea rolului utilizatorului:', error);
     res.status(500).json({ message: 'Eroare server', error: error.message });
-  }
-});
-
-// POST creare utilizator nou de către admin
-router.post('/users', async (req, res) => {
-  try {
-    const { username, email, password, profileImage, role } = req.body;
-
-    const existingUser = await User.findOne({ 
-      $or: [{ username }, { email }] 
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ 
-        message: 'Utilizatorul sau email-ul există deja' 
-      });
-    }
-
-    const newUser = new User({
-      username,
-      email,
-      password,
-      profileImage,
-      role: role || 'user'
-    });
-
-    const savedUser = await newUser.save();
-    
-    const userResponse = savedUser.toObject();
-    delete userResponse.password;
-
-    res.status(201).json({
-      success: true,
-      message: 'Utilizator creat cu succes',
-      user: userResponse
-    });
-  } catch (error) {
-    console.error('Eroare la crearea utilizatorului:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Eroare la crearea utilizatorului', 
-      error: error.message 
-    });
   }
 });
 

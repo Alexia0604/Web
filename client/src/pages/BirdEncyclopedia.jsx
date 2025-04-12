@@ -92,12 +92,12 @@ const BirdEncyclopedia = () => {
 
       if (aspectFilter) {
         birdData = birdData.filter(bird =>
-          bird.aspects?.some(aspect => aspect.name === aspectFilter)
+          bird.aspects?.some(aspect => aspect.title === aspectFilter)
         );
       }
       if (featherColorFilter) {
         birdData = birdData.filter(bird =>
-          bird.featherColors?.some(color => color.name === featherColorFilter)
+          bird.featherColors?.some(color => color.color === featherColorFilter)
         );
       }
       if (habitatFilter) {

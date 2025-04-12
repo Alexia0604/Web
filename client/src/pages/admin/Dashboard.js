@@ -191,9 +191,6 @@ const AdminDashboard = () => {
             <Link to="/admin/birds/add" className="block w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-center">
               Adaugă pasăre nouă
             </Link>
-            <Link to="/admin/users/add" className="block w-full px-4 py-2 bg-indigo-100 text-indigo-800 rounded-md hover:bg-indigo-200 text-center">
-              Adaugă utilizator nou
-            </Link>
           </div>
         </div>
       </div>

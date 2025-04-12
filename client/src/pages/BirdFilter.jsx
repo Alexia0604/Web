@@ -206,11 +206,9 @@ const BirdFilter = () => {
       // Now filter them manually based on the selected criteria
       let filteredBirds = [...allBirds];
       
-      // Filter by aspect if selected - USING IMAGE URL COMPARISON
+      // Filter by aspect if selected - USING TITLE FIELD (conform structurii din BD)
       if (aspectIndex >= 0 && aspect) {
-        // Get the image URL from our ASPECTS_DATA for this aspect
-        const aspectImageUrl = ASPECTS_DATA[aspectIndex].url;
-        console.log(`Filtering by aspect image URL: ${aspectImageUrl}`);
+        console.log(`Filtering by aspect title: ${aspect}`);
         
         filteredBirds = filteredBirds.filter(bird => {
           if (!bird.aspects || !Array.isArray(bird.aspects)) return false;
@@ -220,13 +218,9 @@ const BirdFilter = () => {
             console.log("Barză albă aspects:", JSON.stringify(bird.aspects));
           }
           
-          // For aspects, compare the image URL since there's no title/name
+          // Pentru aspects, folosim câmpul title conform structurii din BD
           return bird.aspects.some(a => {
-            if (!a.image || !a.image.url) return false;
-            
-            // Check if the URLs match (ignoring protocol and query params)
-            const match = a.image.url.includes(aspectImageUrl) || 
-                         aspectImageUrl.includes(a.image.url);
+            const match = a.title === aspect;
             
             if (bird.name === "Barză albă" && match) {
               console.log("Found match for Barză albă aspect!");
@@ -238,11 +232,9 @@ const BirdFilter = () => {
         console.log(`After aspect filter: ${filteredBirds.length} birds remaining`);
       }
       
-      // Filter by feather color if selected - USING IMAGE URL COMPARISON
+      // Filter by feather color if selected - USING COLOR FIELD (conform structurii din BD)
       if (featherColorIndex >= 0 && featherColor) {
-        // Get the image URL from our FEATHERS_DATA for this color
-        const featherImageUrl = FEATHERS_DATA[featherColorIndex].url;
-        console.log(`Filtering by feather color image URL: ${featherImageUrl}`);
+        console.log(`Filtering by feather color: ${featherColor}`);
         
         filteredBirds = filteredBirds.filter(bird => {
           if (!bird.featherColors || !Array.isArray(bird.featherColors)) return false;
@@ -252,13 +244,9 @@ const BirdFilter = () => {
             console.log("Barză albă featherColors:", JSON.stringify(bird.featherColors));
           }
           
-          // For featherColors, compare the image URL since there's no title/name
+          // Pentru featherColors, folosim câmpul color conform structurii din BD
           return bird.featherColors.some(fc => {
-            if (!fc.image || !fc.image.url) return false;
-            
-            // Check if the URLs match (ignoring protocol and query params)
-            const match = fc.image.url.includes(featherImageUrl) || 
-                         featherImageUrl.includes(fc.image.url);
+            const match = fc.color === featherColor;
             
             if (bird.name === "Barză albă" && match) {
               console.log("Found match for Barză albă feather color!");
@@ -270,7 +258,7 @@ const BirdFilter = () => {
         console.log(`After feather color filter: ${filteredBirds.length} birds remaining`);
       }
       
-      // Filter by habitat if selected - USING NAME FIELD
+      // Filter by habitat if selected - USING NAME FIELD (conform structurii din BD)
       if (habitatIndex >= 0 && habitat) {
         console.log(`Filtering by habitat name: ${habitat}`);
         
@@ -282,7 +270,7 @@ const BirdFilter = () => {
             console.log("Barză albă habitats:", JSON.stringify(bird.habitats));
           }
           
-          // For habitats, we can use the name field
+          // Pentru habitats, folosim câmpul name conform structurii din BD
           return bird.habitats.some(h => {
             const match = h.name === habitat;
             
