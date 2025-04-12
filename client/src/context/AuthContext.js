@@ -109,12 +109,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const updateProfileImage = async (imageUrl) => {
+  const updateProfileImage = async (profileImageData) => {
     if (user && user.role !== 'guest') {
-      setUser((prev) => ({
-        ...prev,
-        profileImage: imageUrl,
-      }));
+      console.log('Actualizare imagine profil:', profileImageData);
+      
+      // Dacă avem un obiect complet, îl folosim direct
+      if (typeof profileImageData === 'object' && profileImageData.url) {
+        setUser((prev) => ({
+          ...prev,
+          profileImage: profileImageData,
+        }));
+      } 
+      // Dacă avem doar un URL, îl folosim pentru compatibilitate cu codul existent
+      else if (typeof profileImageData === 'string') {
+        setUser((prev) => ({
+          ...prev,
+          profileImage: profileImageData,
+        }));
+      }
+      // Dacă nu avem nimic valid, nu facem nimic
+      else {
+        console.warn('Format nevalid pentru imagine profil:', profileImageData);
+      }
     }
   };
 

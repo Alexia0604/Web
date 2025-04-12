@@ -23,7 +23,7 @@ const UserSchema = new mongoose.Schema({
     minlength: 6
   },
   profileImage: {
-    type: String,
+    type: mongoose.Schema.Types.Mixed,
     default: null
   },
   role: {

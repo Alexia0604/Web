@@ -169,6 +169,18 @@ const uploadHabitatImage = async (filePath) => {
   }
 };
 
+// Funcție pentru încărcarea imaginilor de profil
+const uploadProfileImage = async (filePath) => {
+  const timestamp = Date.now();
+  const uniqueSuffix = Math.round(Math.random() * 1E9);
+  
+  return uploadToCloudinary(filePath, {
+    folder: 'profile-images',
+    resource_type: 'image',
+    public_id: `profile_${timestamp}_${uniqueSuffix}`
+  });
+};
+
 // Configurare storage pentru multer
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
@@ -193,5 +205,6 @@ module.exports = {
   buildCloudinaryUrl,
   upload,
   cloudinary,
-  uploadImage
+  uploadImage,
+  uploadProfileImage
 }; 

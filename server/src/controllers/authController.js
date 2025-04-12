@@ -6,26 +6,32 @@ const path = require('path');
 const fs = require('fs').promises;
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
+const { uploadProfileImage, deleteFile } = require('../middleware/cloudinaryConfig');
+const os = require('os');
 
-// Configurare multer pentru încărcarea imaginilor
+// Configurare multer pentru încărcarea temporară a imaginilor
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'client/public/Images')
+    cb(null, os.tmpdir()) // Folosim directorul temporar al sistemului
   },
   filename: function (req, file, cb) {
-    // Păstrăm numele original al fișierului, fără nicio modificare
-    cb(null, file.originalname)
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname))
   }
 });
 
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: Infinity // Fără limită
+    fileSize: 5 * 1024 * 1024 // Limită de 5MB
   },
   fileFilter: (req, file, cb) => {
-    // Acceptăm orice tip de imagine
-    cb(null, true);
+    // Verificăm tipul fișierului
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Doar fișierele imagine sunt permise!'), false);
+    }
   }
 }).single('profileImage');
 
@@ -75,7 +81,11 @@ exports.register = async (req, res) => {
       username: user.username,
       email: user.email,
       role: user.role,
-      profileImage: user.profileImage ? `http://localhost:5000/Images/${user.profileImage}` : null
+      profileImage: user.profileImage ? 
+        (typeof user.profileImage === 'object' && user.profileImage.url ? 
+          user.profileImage.url : 
+          `http://localhost:5000/Images/${user.profileImage}`) 
+        : null
     };
 
     res.status(201).json({ success: true, user: userResponse, token });
@@ -126,8 +136,11 @@ exports.login = async (req, res) => {
 
     let profileImageUrl = null;
     if (user.profileImage) {
-      // Verificăm dacă profileImage este în formatul vechi (începe cu /)
-      if (user.profileImage.startsWith('/uploads/')) {
+      // Verifică dacă profileImage este un obiect (noua structură) sau un string (vechea structură)
+      if (typeof user.profileImage === 'object' && user.profileImage.url) {
+        // Noua structură cu Cloudinary
+        profileImageUrl = user.profileImage.url;
+      } else if (user.profileImage.startsWith('/uploads/')) {
         // Format vechi: /uploads/profile-images/filename.jpg
         const parts = user.profileImage.split('/');
         const filename = parts[parts.length - 1];
@@ -196,8 +209,11 @@ exports.getCurrentUser = async (req, res) => {
 
     const userData = user.toObject();
     if (userData.profileImage) {
-      // Verificăm dacă profileImage este în formatul vechi (începe cu /)
-      if (userData.profileImage.startsWith('/uploads/')) {
+      // Verifică dacă profileImage este un obiect (noua structură) sau un string (vechea structură)
+      if (typeof userData.profileImage === 'object' && userData.profileImage.url) {
+        // Noua structură cu Cloudinary
+        userData.profileImage = userData.profileImage.url;
+      } else if (userData.profileImage.startsWith('/uploads/')) {
         // Format vechi: /uploads/profile-images/filename.jpg
         const parts = userData.profileImage.split('/');
         const filename = parts[parts.length - 1];
@@ -268,6 +284,7 @@ exports.refreshToken = (req, res) => {
 exports.uploadProfileImage = async (req, res) => {
   upload(req, res, async (err) => {
     if (err) {
+      console.error('Eroare la încărcarea imaginii:', err);
       return res.status(400).json({ message: err.message });
     }
 
@@ -276,32 +293,69 @@ exports.uploadProfileImage = async (req, res) => {
     }
 
     try {
-      // Folosim doar numele fișierului, fără cale
-      const filename = req.file.filename;
-      const fullImageUrl = `http://localhost:5000/Images/${filename}`;
-      
-      // Actualizare utilizator cu noua imagine
-      const user = await User.findByIdAndUpdate(
-        req.user._id,
-        { profileImage: filename }, // Stocăm doar numele fișierului
-        { new: true }
-      ).select('-password');
-
+      // Verificăm dacă utilizatorul există
+      const user = await User.findById(req.user._id);
       if (!user) {
         return res.status(404).json({ message: 'Utilizator negăsit' });
       }
 
+      // Dacă utilizatorul are deja o imagine cu public_id în Cloudinary, o ștergem
+      let oldPublicId = null;
+      if (user.profileImage && user.profileImage.public_id) {
+        oldPublicId = user.profileImage.public_id;
+      }
+
+      console.log('Încărcare imagine în Cloudinary din:', req.file.path);
+      // Încărcăm noua imagine în Cloudinary
+      const cloudinaryResult = await uploadProfileImage(req.file.path);
+      console.log('Rezultat Cloudinary:', cloudinaryResult);
+      
+      // Actualizăm utilizatorul cu noua imagine
+      const updatedUser = await User.findByIdAndUpdate(
+        req.user._id,
+        { 
+          profileImage: {
+            url: cloudinaryResult.url,
+            public_id: cloudinaryResult.public_id,
+            filename: cloudinaryResult.filename
+          }
+        },
+        { new: true }
+      ).select('-password');
+
+      // Dacă aveam o imagine veche în Cloudinary, o ștergem după ce am încărcat cu succes cea nouă
+      if (oldPublicId) {
+        try {
+          await deleteFile(oldPublicId);
+          console.log(`Imagine anterioară ștearsă: ${oldPublicId}`);
+        } catch (deleteError) {
+          console.error('Eroare la ștergerea imaginii anterioare:', deleteError);
+          // Continuăm chiar dacă ștergerea eșuează
+        }
+      }
+
+      // Răspundem cu URL-ul complet pentru noua imagine
       res.json({ 
         success: true,
         message: 'Imagine încărcată cu succes',
-        imageUrl: fullImageUrl,
+        imageUrl: cloudinaryResult.url,
         user: {
-          ...user.toObject(),
-          profileImage: fullImageUrl
+          ...updatedUser.toObject(),
+          profileImage: cloudinaryResult.url
         }
       });
     } catch (error) {
+      console.error('Eroare la procesarea imaginii:', error);
       res.status(500).json({ message: 'Eroare la încărcarea imaginii', error: error.message });
+    } finally {
+      // Ștergem fișierul temporar dacă există
+      if (req.file && req.file.path) {
+        try {
+          await fs.unlink(req.file.path).catch(() => {});
+        } catch (err) {
+          console.warn('Warning: Could not delete temporary file:', err);
+        }
+      }
     }
   });
 };
@@ -398,7 +452,11 @@ exports.updateProfile = async (req, res) => {
     // Adăugăm URL-ul complet pentru imagine
     const userResponse = updatedUser.toObject();
     if (userResponse.profileImage) {
-      userResponse.profileImage = `http://localhost:5000/Images/${userResponse.profileImage}`;
+      if (typeof userResponse.profileImage === 'object' && userResponse.profileImage.url) {
+        userResponse.profileImage = userResponse.profileImage.url;
+      } else {
+        userResponse.profileImage = `http://localhost:5000/Images/${userResponse.profileImage}`;
+      }
     }
 
     res.json({

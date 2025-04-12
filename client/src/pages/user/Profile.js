@@ -21,11 +21,18 @@ const Profile = () => {
   // Efect pentru a seta imaginea inițială
   useEffect(() => {
     if (user?.profileImage) {
-      // Verificăm dacă URL-ul este deja complet
-      const imageUrl = user.profileImage.startsWith('http') 
-        ? user.profileImage 
-        : `http://localhost:5000${user.profileImage}`;
-      setPreviewImage(imageUrl);
+      // Verificăm dacă avem un obiect sau un string
+      if (typeof user.profileImage === 'object' && user.profileImage.url) {
+        setPreviewImage(user.profileImage.url);
+      } else if (typeof user.profileImage === 'string') {
+        // Pentru compatibilitate cu formatul vechi
+        const imageUrl = user.profileImage.startsWith('http') 
+          ? user.profileImage 
+          : `http://localhost:5000${user.profileImage}`;
+        setPreviewImage(imageUrl);
+      } else {
+        setPreviewImage('/images/default-avatar.png');
+      }
     } else {
       setPreviewImage('/images/default-avatar.png');
     }
@@ -65,6 +72,7 @@ const Profile = () => {
     setUploading(true);
     setError(null);
     try {
+      console.log('Încărcare imagine...');
       const response = await axios.post('http://localhost:5000/api/auth/upload-profile-image', 
         formData,
         {
@@ -75,16 +83,31 @@ const Profile = () => {
         }
       );
 
-      if (response.data.imageUrl) {
-        await updateProfileImage(response.data.imageUrl);
+      if (response.data.success && response.data.imageUrl) {
+        console.log('Imagine încărcată cu succes:', response.data);
+        
+        // Actualizăm profilul utilizatorului în context cu noua imagine
+        if (typeof response.data.user.profileImage === 'object') {
+          await updateProfileImage(response.data.user.profileImage);
+        } else {
+          await updateProfileImage(response.data.imageUrl);
+        }
+        
         setMessage('Imaginea de profil a fost actualizată cu succes');
         setPreviewImage(response.data.imageUrl);
+      } else {
+        throw new Error('Răspuns neașteptat de la server');
       }
     } catch (err) {
-      setError('Eroare la încărcarea imaginii');
+      console.error('Eroare la încărcarea imaginii:', err);
+      setError(err.response?.data?.message || 'Eroare la încărcarea imaginii');
       setPreviewImage(previousImage); // Revenim la imaginea anterioară în caz de eroare
     } finally {
       setUploading(false);
+      // Eliberăm resursele pentru URL-ul temporar
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
     }
   };
 
