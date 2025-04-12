@@ -2,6 +2,7 @@ const Bird = require('../models/Bird');
 const config = require('../config/config');
 const fs = require('fs').promises;
 const path = require('path');
+const { deleteFile } = require('../middleware/cloudinaryConfig');
 
 // Funcție utilitară pentru a rezolva URL-urile de imagini
 const resolveImageUrl = (image) => {
@@ -323,41 +324,22 @@ exports.deleteBird = async (req, res) => {
       });
     }
 
-    // Șterge fișierele asociate (imagine și audio)
-    const filesToDelete = [];
-    
-    if (bird.image) {
-      filesToDelete.push(path.join(__dirname, '../../..', 'client/public/Images', bird.image));
-    }
-    
-    if (bird.audio) {
-      filesToDelete.push(path.join(__dirname, '../../..', 'client/public/Images', bird.audio));
-    }
-
-    // Șterge imaginile din array-uri (aspecte, culori, habitate)
-    const arrayFields = ['aspects', 'featherColors', 'habitats'];
-    
-    for (const field of arrayFields) {
-      if (bird[field] && bird[field].length > 0) {
-        for (const item of bird[field]) {
-          if (item.image) {
-            filesToDelete.push(path.join(__dirname, '../../..', 'client/public/Images', item.image));
-          }
-        }
+    // Șterge fișierele din Cloudinary (imagine și audio)
+    try {
+      // Ștergem imaginea principală din Cloudinary
+      if (bird.image && bird.image.public_id) {
+        await deleteFile(bird.image.public_id, 'image');
+        console.log('Imagine principală ștearsă din Cloudinary:', bird.image.public_id);
       }
-    }
-
-    // Șterge fișierele fizic
-    for (const filePath of filesToDelete) {
-      try {
-        await fs.access(filePath); // Verifică dacă fișierul există
-        await fs.unlink(filePath); // Șterge fișierul
-      } catch (err) {
-        // Ignoră erorile dacă fișierul nu există
-        if (err.code !== 'ENOENT') {
-          console.error(`Eroare la ștergerea fișierului ${filePath}:`, err);
-        }
+      
+      // Ștergem fișierul audio din Cloudinary
+      if (bird.audio && bird.audio.public_id) {
+        await deleteFile(bird.audio.public_id, 'video'); // Cloudinary stochează audio ca 'video'
+        console.log('Fișier audio șters din Cloudinary:', bird.audio.public_id);
       }
+    } catch (deleteError) {
+      console.error('Eroare la ștergerea fișierelor din Cloudinary:', deleteError);
+      // Continuăm chiar dacă ștergerea Cloudinary eșuează
     }
 
     // Șterge pasărea din baza de date
@@ -507,6 +489,46 @@ exports.getBirdStats = async (req, res) => {
   } catch (err) {
     console.error('Eroare la obținerea statisticilor:', err.message);
     res.status(500).json({ message: err.message });
+  }
+};
+
+// Șterge un fișier din Cloudinary
+exports.deleteCloudinaryFile = async (req, res) => {
+  try {
+    const { public_id, resource_type } = req.body;
+
+    if (!public_id) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'ID-ul public Cloudinary nu a fost specificat' 
+      });
+    }
+
+    try {
+      // Ștergem fișierul din Cloudinary
+      const result = await deleteFile(public_id, resource_type || 'image');
+      console.log('Fișier șters din Cloudinary:', result);
+      
+      res.json({ 
+        success: true, 
+        message: 'Fișierul a fost șters cu succes din Cloudinary',
+        result
+      });
+    } catch (err) {
+      console.error('Eroare la ștergerea fișierului din Cloudinary:', err);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Eroare la ștergerea fișierului din Cloudinary',
+        error: err.message
+      });
+    }
+  } catch (error) {
+    console.error('Eroare la ștergerea fișierului din Cloudinary:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Eroare la ștergerea fișierului din Cloudinary', 
+      error: error.message 
+    });
   }
 };
 

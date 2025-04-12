@@ -39,6 +39,7 @@ const BirdEdit = () => {
   const [imageFile, setImageFile] = useState(null);
   const [audioFile, setAudioFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [audioPreview, setAudioPreview] = useState(null);
   
   // Încărcăm datele din tabele când se încarcă componenta
   useEffect(() => {
@@ -105,6 +106,8 @@ const BirdEdit = () => {
         });
         const birdData = response.data;
         
+        console.log('Date pasare încărcate:', birdData);
+        
         // Map the bird data to our state format
         setBird({
           ...birdData,
@@ -127,9 +130,26 @@ const BirdEdit = () => {
           })) || []
         });
         
-        // Setăm și previzualizarea imaginii
+        // Setăm și previzualizarea imaginii - verificăm formatul datelor
         if (birdData.image) {
-          setImagePreview(`${API_BASE_URL}/Images/${birdData.image}`);
+          let imageUrl;
+          if (typeof birdData.image === 'object' && birdData.image.url) {
+            // Dacă avem un obiect cu URL, folosim direct URL-ul
+            imageUrl = birdData.image.url;
+            console.log('Setare imagine preview din obiect:', imageUrl);
+          } else if (typeof birdData.image === 'string') {
+            // Dacă avem un string, verificăm dacă este URL complet sau cale relativă
+            if (birdData.image.startsWith('http')) {
+              imageUrl = birdData.image;
+            } else {
+              imageUrl = `${API_BASE_URL}/Images/${birdData.image}`;
+            }
+            console.log('Setare imagine preview din string:', imageUrl);
+          }
+          
+          if (imageUrl) {
+            setImagePreview(imageUrl);
+          }
         }
         
         setLoading(false);
@@ -223,90 +243,73 @@ const BirdEdit = () => {
 
   const getAudioUrl = (audio) => {
     if (!audio) return '';
-    if (typeof audio === 'object' && audio !== null && audio.url) {
-      return audio.url;
+    
+    // Verificăm dacă audio este un obiect cu url
+    if (typeof audio === 'object' && audio !== null) {
+      if (audio.url) {
+        console.log(`Utilizare URL Audio din obiect: ${audio.url}`);
+        return audio.url;
+      }
+      if (audio.secure_url) {
+        console.log(`Utilizare Secure URL Audio din obiect: ${audio.secure_url}`);
+        return audio.secure_url;
+      }
     }
+    
+    // Dacă audio este un string
     if (typeof audio === 'string') {
       if (audio.startsWith('http')) {
+        console.log(`Utilizare URL Audio ca string: ${audio}`);
         return audio;
       }
+      console.log(`Compunere URL Audio din string local: ${API_BASE_URL}/Images/${audio}`);
       return `${API_BASE_URL}/Images/${audio}`;
     }
+    
+    console.log('Nu s-a putut determina URL-ul audio, audio este:', audio);
     return '';
   };
 
-  const handleFileUpload = async (event, type) => {
-    try {
-      setIsUploading(true);
-      setError(null);
-      const file = event.target.files[0];
-      if (!file) return;
-
-      // Verificăm dimensiunea fișierului
-      const maxSize = 10 * 1024 * 1024; // 10MB
-      if (file.size > maxSize) {
-        setError('Fișierul este prea mare. Dimensiunea maximă permisă este de 10MB.');
-        setIsUploading(false);
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('uploadType', type);
-
-      const response = await axios.post(`${API_BASE_URL}/api/admin/upload-bird-file`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          setUploadProgress(percentCompleted);
-        },
-        withCredentials: true
-      });
-
-      if (response.data.success) {
-        if (type === 'image') {
-          setBird(prev => ({
-            ...prev,
-            image: {
-              url: response.data.url,
-              public_id: response.data.public_id,
-              filename: response.data.filename
-            }
-          }));
-        } else if (type === 'audio') {
-          setBird(prev => ({
-            ...prev,
-            audio: {
-              url: response.data.url,
-              public_id: response.data.public_id,
-              filename: response.data.filename
-            }
-          }));
-        }
-        setUploadProgress(100);
-        setTimeout(() => {
-          setUploadProgress(0);
-          setIsUploading(false);
-        }, 1000);
-      } else {
-        throw new Error(response.data.error || 'Eroare la încărcarea fișierului');
-      }
-    } catch (error) {
-      console.error('Eroare la încărcarea fișierului:', error);
-      setError(error.response?.data?.error || error.message || 'Eroare la încărcarea fișierului');
-      setUploadProgress(0);
-      setIsUploading(false);
-    }
-  };
-  
   const handleImageSelect = (e) => {
-    handleFileUpload(e, 'image');
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Verificăm dimensiunea fișierului
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setError('Fișierul imagine este prea mare. Dimensiunea maximă permisă este de 10MB.');
+      return;
+    }
+
+    // Salvăm fișierul pentru upload ulterior
+    setImageFile(file);
+    
+    // Creăm URL local pentru previzualizare
+    const imageUrl = URL.createObjectURL(file);
+    setImagePreview(imageUrl);
+    
+    console.log('Fișier imagine selectat pentru încărcare ulterioară:', file.name);
   };
   
   const handleAudioSelect = (e) => {
-    handleFileUpload(e, 'audio');
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Verificăm dimensiunea fișierului
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setError('Fișierul audio este prea mare. Dimensiunea maximă permisă este de 10MB.');
+      return;
+    }
+
+    // Salvăm fișierul pentru upload ulterior
+    setAudioFile(file);
+    
+    // Creăm URL local pentru previzualizare
+    const audioUrl = URL.createObjectURL(file);
+    setAudioPreview(audioUrl);
+    
+    console.log('Fișier audio selectat pentru încărcare ulterioară:', file.name);
   };
   
   // Render image preview
@@ -316,13 +319,18 @@ const BirdEdit = () => {
     
     let imageUrl = '';
     
-    if (imageData && typeof imageData === 'object' && imageData.url) {
+    // Dacă avem o previzualizare și suntem în contextul imaginii principale
+    if (imagePreview && field === 'image' && !arrayField) {
+      imageUrl = imagePreview;
+    } else if (imageData && typeof imageData === 'object' && imageData.url) {
       imageUrl = imageData.url;
     } else if (imageData && typeof imageData === 'string') {
       imageUrl = imageData.startsWith('http') ? imageData : `${API_BASE_URL}/Images/${imageData}`;
     } else {
       imageUrl = '/Images/placeholder-bird.png';
     }
+    
+    console.log('Render image preview for:', field, 'URL:', imageUrl);
     
     return (
       <div className="relative w-32 h-32 bg-gray-100 rounded border overflow-hidden">
@@ -355,26 +363,161 @@ const BirdEdit = () => {
     
     try {
       setError(null);
+      setIsUploading(true);
       
-      // Transformăm datele pentru a se potrivi cu ceea ce așteaptă API-ul
+      // Verificăm dacă avem toate câmpurile necesare
+      if (!bird.name || !bird.scientificName) {
+        setError('Numele și denumirea științifică sunt obligatorii');
+        window.scrollTo(0, 0);
+        setIsUploading(false);
+        return;
+      }
+      
+      let updatedBird = { ...bird };
+      
+      // Încărcăm imaginea nouă în Cloudinary, dacă există
+      if (imageFile) {
+        try {
+          console.log('Încărcare imagine în Cloudinary...');
+          const formData = new FormData();
+          formData.append('file', imageFile);
+          formData.append('uploadType', 'image');
+          
+          const response = await axios.post(`${API_BASE_URL}/api/admin/upload-bird-file`, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            },
+            withCredentials: true
+          });
+          
+          if (response.data.success) {
+            console.log('Imagine încărcată cu succes:', response.data);
+            
+            // Salvăm referința la fișierul imagine vechi pentru a-l șterge după salvare
+            const oldImagePublicId = updatedBird.image && updatedBird.image.public_id ? 
+              updatedBird.image.public_id : null;
+            
+            // Actualizăm datele pasării cu noua referință imagine
+            updatedBird = {
+              ...updatedBird,
+              image: {
+                url: response.data.url,
+                public_id: response.data.public_id,
+                filename: response.data.filename
+              }
+            };
+            
+            // Ștergem fișierul vechi din Cloudinary dacă există
+            if (oldImagePublicId) {
+              try {
+                console.log(`Ștergere fișier imagine vechi din Cloudinary: ${oldImagePublicId}`);
+                await axios.delete(`${API_BASE_URL}/api/admin/delete-cloudinary-file`, {
+                  data: { 
+                    public_id: oldImagePublicId,
+                    resource_type: 'image'
+                  },
+                  withCredentials: true
+                });
+              } catch (deleteError) {
+                console.error('Eroare la ștergerea fișierului imagine vechi:', deleteError);
+                // Continuăm chiar dacă ștergerea a eșuat
+              }
+            }
+          } else {
+            throw new Error(response.data.error || 'Eroare la încărcarea fișierului imagine');
+          }
+        } catch (uploadError) {
+          console.error('Eroare la încărcarea fișierului imagine:', uploadError);
+          setError(uploadError.response?.data?.error || uploadError.message || 'Eroare la încărcarea fișierului imagine');
+          setIsUploading(false);
+          return;
+        }
+      }
+      
+      // Încărcăm fișierul audio nou în Cloudinary, dacă există
+      if (audioFile) {
+        try {
+          console.log('Încărcare audio în Cloudinary...');
+          const formData = new FormData();
+          formData.append('file', audioFile);
+          formData.append('uploadType', 'audio');
+          
+          const response = await axios.post(`${API_BASE_URL}/api/admin/upload-bird-file`, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            },
+            withCredentials: true
+          });
+          
+          if (response.data.success) {
+            console.log('Audio încărcat cu succes:', response.data);
+            
+            // Salvăm referința la fișierul audio vechi pentru a-l șterge după salvare
+            const oldAudioPublicId = updatedBird.audio && updatedBird.audio.public_id ? 
+              updatedBird.audio.public_id : null;
+            
+            // Actualizăm datele pasării cu noua referință audio
+            updatedBird = {
+              ...updatedBird,
+              audio: {
+                url: response.data.url,
+                public_id: response.data.public_id,
+                filename: response.data.filename
+              }
+            };
+            
+            // Ștergem fișierul vechi din Cloudinary dacă există
+            if (oldAudioPublicId) {
+              try {
+                console.log(`Ștergere fișier audio vechi din Cloudinary: ${oldAudioPublicId}`);
+                await axios.delete(`${API_BASE_URL}/api/admin/delete-cloudinary-file`, {
+                  data: { 
+                    public_id: oldAudioPublicId,
+                    resource_type: 'video' // Cloudinary stochează audio ca 'video'
+                  },
+                  withCredentials: true
+                });
+              } catch (deleteError) {
+                console.error('Eroare la ștergerea fișierului audio vechi:', deleteError);
+                // Continuăm chiar dacă ștergerea a eșuat
+              }
+            }
+          } else {
+            throw new Error(response.data.error || 'Eroare la încărcarea fișierului audio');
+          }
+        } catch (uploadError) {
+          console.error('Eroare la încărcarea fișierului audio:', uploadError);
+          setError(uploadError.response?.data?.error || uploadError.message || 'Eroare la încărcarea fișierului audio');
+          setIsUploading(false);
+          return;
+        }
+      }
+      
+      // Pregătim datele pentru API
       const birdData = {
-        ...bird,
-        aspects: bird.aspects.map(aspect => ({
+        ...updatedBird,
+        // Păstrăm structura completă pentru image și audio (inclusiv public_id pentru Cloudinary)
+        image: updatedBird.image,
+        audio: updatedBird.audio,
+        // Pentru arrays, menținem structura uniformă
+        aspects: updatedBird.aspects.map(aspect => ({
           title: aspect.name || '',
           description: aspect.description || '',
           image: aspect.image
         })),
-        featherColors: bird.featherColors.map(color => ({
+        featherColors: updatedBird.featherColors.map(color => ({
           color: color.name || '',
           description: color.description || '',
           image: color.image
         })),
-        habitats: bird.habitats.map(habitat => ({
+        habitats: updatedBird.habitats.map(habitat => ({
           name: habitat.name || '',
           description: habitat.description || '',
           image: habitat.image
         }))
       };
+      
+      console.log('Date trimise spre server:', birdData);
       
       // Trimitem datele către API
       const response = await axios.put(`${API_BASE_URL}/api/admin/birds/${id}`, birdData, {
@@ -382,7 +525,17 @@ const BirdEdit = () => {
       });
       
       if (response.data.success) {
+        console.log('Răspuns server după actualizare:', response.data);
         setSuccessMessage('Pasărea a fost actualizată cu succes!');
+        
+        // Curățăm resursele temporare
+        if (imagePreview) URL.revokeObjectURL(imagePreview);
+        if (audioPreview) URL.revokeObjectURL(audioPreview);
+        setImageFile(null);
+        setImagePreview(null);
+        setAudioFile(null);
+        setAudioPreview(null);
+        
         setTimeout(() => {
           navigate('/admin/birds');
         }, 2000);
@@ -393,8 +546,19 @@ const BirdEdit = () => {
       console.error('Eroare la trimiterea datelor:', error);
       setError(error.response?.data?.message || error.message || 'Eroare la actualizarea păsării');
       window.scrollTo(0, 0);
+    } finally {
+      setIsUploading(false);
     }
   };
+  
+  // Adăugăm efect pentru a curăța URL-urile de previzualizare la demontarea componentei
+  useEffect(() => {
+    return () => {
+      // Curățăm URL-urile temporare
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      if (audioPreview) URL.revokeObjectURL(audioPreview);
+    };
+  }, [imagePreview, audioPreview]);
   
   if (loading && !bird.name) {
     return (
@@ -531,6 +695,11 @@ const BirdEdit = () => {
               Imagine *
             </label>
             {renderImagePreview(bird.image, 'image')}
+            {imageFile && (
+              <span className="mt-2 block text-sm text-gray-600">
+                Fișier nou selectat: {imageFile.name}
+              </span>
+            )}
           </div>
 
           <div>
@@ -549,10 +718,22 @@ const BirdEdit = () => {
                 />
               </label>
             </div>
-            {bird.audio && bird.audio.url && (
+            {audioFile && (
+              <span className="ml-2 text-sm text-gray-600">
+                Fișier nou selectat: {audioFile.name}
+              </span>
+            )}
+            {(audioPreview || (bird.audio && bird.audio.url)) && (
               <div className="mt-3">
-                <audio controls className="w-full">
-                  <source src={bird.audio.url} type="audio/mpeg" />
+                <audio 
+                  controls 
+                  className="w-full" 
+                  key={audioPreview || (bird.audio && bird.audio.url) || Math.random()}
+                >
+                  <source 
+                    src={audioPreview || (bird.audio && bird.audio.url)} 
+                    type="audio/mpeg" 
+                  />
                   Browser-ul tău nu suportă elementul audio.
                 </audio>
               </div>

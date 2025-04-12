@@ -401,4 +401,7 @@ router.post('/upload-bird-file', upload.single('file'), async (req, res) => {
 // DELETE șterge un fișier
 router.delete('/delete-bird-file', birdController.deleteFile);
 
+// DELETE șterge un fișier din Cloudinary
+router.delete('/delete-cloudinary-file', birdController.deleteCloudinaryFile);
+
 module.exports = router;
