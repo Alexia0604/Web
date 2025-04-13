@@ -12,6 +12,7 @@ const ForgotPassword = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetCode, setResetCode] = useState(''); // Pentru a stoca codul primit direct
 
   // Funcție pentru trimiterea emailului
   const handleEmailSubmit = async (e) => {
@@ -19,10 +20,21 @@ const ForgotPassword = () => {
     setLoading(true);
     setError('');
     setMessage('');
+    setResetCode('');
 
     try {
       const res = await axios.post('http://localhost:5000/api/auth/forgot-password', { email });
-      setMessage('Codul de verificare a fost generat. Verifică consola pentru cod.');
+      
+      // Verificăm dacă avem codul direct în răspuns (când email-ul eșuează)
+      if (res.data.resetCode) {
+        setResetCode(res.data.resetCode);
+        setMessage('Codul de verificare nu a putut fi trimis pe email, dar îl poți folosi direct de aici.');
+        // Precompletăm automat codul primit
+        setCode(res.data.resetCode);
+      } else {
+        setMessage('Codul de verificare a fost trimis pe adresa ta de email.');
+      }
+      
       setStep(2);
     } catch (err) {
       setError(err.response?.data?.message || 'Eroare la generarea codului');
@@ -95,6 +107,14 @@ const ForgotPassword = () => {
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
             <span className="block sm:inline">{error}</span>
+          </div>
+        )}
+
+        {/* Afișăm codul de resetare când îl primim direct */}
+        {resetCode && (
+          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mt-4" role="alert">
+            <p className="font-bold">Codul tău de resetare:</p>
+            <p className="text-2xl font-bold text-center tracking-widest mt-2">{resetCode}</p>
           </div>
         )}
 

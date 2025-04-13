@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const { uploadProfileImage, deleteFile } = require('../middleware/cloudinaryConfig');
 const os = require('os');
+const emailService = require('../config/emailService');
 
 // Configurare multer pentru încărcarea temporară a imaginilor
 const storage = multer.diskStorage({
@@ -490,10 +491,37 @@ exports.forgotPassword = async (req, res) => {
     user.resetCodeExpires = Date.now() + 3600000; // 1 oră
     await user.save();
 
-    // În dezvoltare, afișăm codul în consolă
-    console.log('Cod de resetare pentru', email, ':', resetCode);
+    // Încercăm să trimitem codul prin email
+    let emailSent = false;
+    try {
+      const emailContent = emailService.createResetPasswordEmailContent(user.username, resetCode);
+      const emailResult = await emailService.sendEmail(
+        email,
+        'Resetare parolă BirdHub',
+        emailContent.text,
+        emailContent.html
+      );
+      emailSent = emailResult.success;
+    } catch (emailError) {
+      console.error('Eroare la trimiterea email-ului:', emailError);
+      // Nu oprim procesul dacă email-ul eșuează
+    }
 
-    res.json({ success: true, message: 'Cod de resetare generat cu succes' });
+    // Afișăm mesajul în funcție de succesul trimiterii email-ului
+    if (emailSent) {
+      res.json({ 
+        success: true, 
+        message: 'Un cod de resetare a fost trimis la adresa ta de email' 
+      });
+    } else {
+      // Dacă email-ul nu a fost trimis, returnăm codul direct în răspuns
+      console.log('Email-ul nu a putut fi trimis. Returnăm codul în răspuns:', resetCode);
+      res.json({ 
+        success: true, 
+        message: 'Trimiterea email-ului a eșuat, dar am generat codul pentru tine', 
+        resetCode: resetCode 
+      });
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Eroare server', error: error.message });
