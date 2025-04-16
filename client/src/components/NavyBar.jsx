@@ -423,6 +423,7 @@ const NavyBar = () => {
                                         <MenuItem onClick={() => {
                                             setAnchorEl(null);
                                             logout();
+                                            navigate('/');
                                         }}>
                                             <ListItemIcon>
                                                 <Logout fontSize="small" />

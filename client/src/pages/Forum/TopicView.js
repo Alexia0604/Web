@@ -131,13 +131,40 @@ const TopicView = () => {
 
     try {
       const response = await axios.post(`/api/forum/comments/${commentId}/like`);
-      setComments(comments.map(c => 
-        c._id === commentId ? response.data : c
-      ));
+      
+      // Actualizăm comentariul în state
+      const updatedComments = comments.map(comment => {
+        if (comment._id === commentId) {
+          return response.data;
+        }
+        
+        // Actualizăm și în replies dacă există
+        if (comment.replies) {
+          comment.replies = comment.replies.map(reply => 
+            reply._id === commentId ? response.data : reply
+          );
+        }
+        
+        return comment;
+      });
+      
+      setComments(updatedComments);
     } catch (err) {
+      console.error('Eroare la actualizarea aprecierii:', err);
       setError('Eroare la actualizarea aprecierii');
-      console.error('Eroare:', err);
     }
+  };
+
+  // Funcție pentru a verifica dacă utilizatorul curent a apreciat un comentariu
+  const hasUserLiked = (comment) => {
+    if (!user || !comment.likes) return false;
+    return comment.likes.some(like => {
+      // Verificăm dacă like este un obiect sau doar un ID
+      if (typeof like === 'object' && like !== null) {
+        return like._id === user._id;
+      }
+      return like === user._id;
+    });
   };
 
   // Handler pentru selectare fișiere
@@ -198,7 +225,21 @@ const TopicView = () => {
 
   if (loading) return <Typography>Se încarcă...</Typography>;
   if (error) return <Alert severity="error">{error}</Alert>;
-  if (!topic) return <Alert severity="error">Topicul nu a fost găsit</Alert>;
+  if (!topic) return <Alert severity="info">Topicul nu a fost găsit</Alert>;
+
+  // Funcție pentru a obține numele și imaginea autorului în mod sigur
+  const getAuthorInfo = (author) => {
+    if (!author) {
+      return {
+        username: 'Utilizator șters',
+        profileImage: '/images/default-avatar.png'
+      };
+    }
+    return {
+      username: author.username,
+      profileImage: author.profileImage || '/images/default-avatar.png'
+    };
+  };
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -211,35 +252,32 @@ const TopicView = () => {
         Înapoi la Topics
       </Button>
 
-      {/* Topic header */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h4" gutterBottom>
+      <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Avatar 
+            src={getAuthorInfo(topic.author).profileImage}
+            alt={getAuthorInfo(topic.author).username}
+            sx={{ mr: 2 }}
+          />
+          <Box>
+            <Typography variant="subtitle2">
+              {getAuthorInfo(topic.author).username}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {formatDistanceToNow(new Date(topic.createdAt), { addSuffix: true, locale: ro })}
+            </Typography>
+          </Box>
+        </Box>
+
+        <Typography variant="h5" gutterBottom>
           {topic.title}
         </Typography>
 
-        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-          {topic.tags.map((tag) => (
-            <Chip key={tag} label={tag} size="small" />
-          ))}
-        </Box>
-
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <Avatar src={topic.author.profileImage} sx={{ mr: 1 }} />
-          <Typography variant="body2" color="text.secondary">
-            de {topic.author.username} •{' '}
-            {formatDistanceToNow(new Date(topic.createdAt), {
-              addSuffix: true,
-              locale: ro
-            })}
-          </Typography>
-        </Box>
-
-        <Typography variant="body1" sx={{ mb: 2 }}>
+        <Typography paragraph>
           {topic.content}
         </Typography>
 
-        {/* Atașamente topic */}
-        {topic.attachments?.length > 0 && (
+        {topic.attachments && topic.attachments.length > 0 && (
           <Box sx={{ mt: 2 }}>
             <Typography variant="subtitle2" gutterBottom>
               Atașamente:
@@ -248,219 +286,245 @@ const TopicView = () => {
               {topic.attachments.map((attachment, index) => (
                 <Grid item key={index}>
                   {attachment.type === 'image' ? (
-                    <Box
-                      component="img"
+                    <img
                       src={attachment.url}
                       alt={attachment.filename}
-                      sx={{
-                        maxWidth: '100%',
-                        height: 'auto',
-                        maxHeight: 200,
-                        borderRadius: 1
-                      }}
+                      style={{ maxWidth: '200px', maxHeight: '200px' }}
                     />
                   ) : (
-                    <Box>
-                      <audio controls>
-                        <source src={attachment.url} type="audio/mpeg" />
-                        Browserul dvs. nu suportă elementul audio.
-                      </audio>
-                    </Box>
+                    <audio controls>
+                      <source src={attachment.url} type="audio/mpeg" />
+                      Browserul dvs. nu suportă redarea audio.
+                    </audio>
                   )}
                 </Grid>
               ))}
             </Grid>
           </Box>
         )}
+
+        {topic.tags && topic.tags.length > 0 && (
+          <Box sx={{ mt: 2 }}>
+            {topic.tags.map((tag, index) => (
+              <Chip
+                key={index}
+                label={tag}
+                size="small"
+                sx={{ mr: 1, mb: 1 }}
+              />
+            ))}
+          </Box>
+        )}
       </Paper>
 
-      {/* Secțiune comentarii */}
-      <Typography variant="h6" gutterBottom>
-        Comentarii ({comments.length})
-      </Typography>
+      {/* Secțiunea de comentarii */}
+      <Paper elevation={3} sx={{ p: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Comentarii ({comments.length})
+        </Typography>
 
-      {comments.map((comment) => (
-        <Paper key={comment._id} sx={{ p: 2, mb: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Avatar src={comment.author.profileImage} sx={{ mr: 1 }} />
-              <Typography variant="body2" color="text.secondary">
-                {comment.author.username} •{' '}
-                {formatDistanceToNow(new Date(comment.createdAt), {
-                  addSuffix: true,
-                  locale: ro
-                })}
-                {comment.isEdited && ' • editat'}
-              </Typography>
-            </Box>
-
-            {user && (user._id === comment.author._id || user._id === topic.author._id) && (
-              <>
-                <IconButton
-                  size="small"
-                  onClick={(e) => handleMenuOpen(e, comment)}
-                >
-                  <MoreVertIcon />
-                </IconButton>
-                <Menu
-                  anchorEl={menuAnchorEl}
-                  open={Boolean(menuAnchorEl)}
-                  onClose={handleMenuClose}
-                >
-                  <MenuItem onClick={handleDeleteComment}>
-                    Șterge comentariul
-                  </MenuItem>
-                </Menu>
-              </>
-            )}
-          </Box>
-
-          <Typography variant="body1" sx={{ mb: 1 }}>
-            {comment.content}
-          </Typography>
-
-          {/* Atașamente comentariu */}
-          {comment.attachments?.length > 0 && (
-            <Box sx={{ mt: 1 }}>
-              <Grid container spacing={1}>
-                {comment.attachments.map((attachment, index) => (
-                  <Grid item key={index}>
-                    {attachment.type === 'image' ? (
-                      <Box
-                        component="img"
-                        src={attachment.url}
-                        alt={attachment.filename}
-                        sx={{
-                          maxWidth: '100%',
-                          height: 'auto',
-                          maxHeight: 150,
-                          borderRadius: 1
-                        }}
-                      />
-                    ) : (
-                      <Box>
-                        <audio controls>
-                          <source src={attachment.url} type="audio/mpeg" />
-                          Browserul dvs. nu suportă elementul audio.
-                        </audio>
-                      </Box>
-                    )}
-                  </Grid>
-                ))}
-              </Grid>
-            </Box>
-          )}
-
-          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-            <Button
-              size="small"
-              startIcon={<ThumbUpIcon />}
-              onClick={() => handleLike(comment._id)}
-              color={comment.likes.includes(user?._id) ? 'primary' : 'inherit'}
-            >
-              {comment.likes.length}
-            </Button>
-            <Button
-              size="small"
-              startIcon={<ReplyIcon />}
-              onClick={() => setReplyTo(comment)}
-            >
-              Răspunde
-            </Button>
-          </Box>
-
-          {/* Răspunsuri la comentariu */}
-          {comment.replies?.length > 0 && (
-            <Box sx={{ ml: 4, mt: 2 }}>
-              {comment.replies.map((reply) => (
-                <Paper key={reply._id} sx={{ p: 2, mb: 1, bgcolor: 'grey.50' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <Avatar src={reply.author.profileImage} sx={{ mr: 1, width: 24, height: 24 }} />
-                    <Typography variant="body2" color="text.secondary">
-                      {reply.author.username} •{' '}
-                      {formatDistanceToNow(new Date(reply.createdAt), {
-                        addSuffix: true,
-                        locale: ro
-                      })}
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2">{reply.content}</Typography>
-                </Paper>
-              ))}
-            </Box>
-          )}
-        </Paper>
-      ))}
-
-      {/* Formular adăugare comentariu */}
-      {user ? (
-        <Paper sx={{ p: 2 }}>
-          {replyTo && (
-            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
-                Răspuns la comentariul lui {replyTo.author.username}
-              </Typography>
-              <IconButton size="small" onClick={() => setReplyTo(null)}>
-                <CloseIcon />
-              </IconButton>
-            </Box>
-          )}
-
-          <form onSubmit={handleAddComment}>
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Adaugă un comentariu..."
-              sx={{ mb: 2 }}
-            />
-
-            <Box sx={{ mb: 2 }}>
-              <input
-                type="file"
-                ref={fileInputRef}
-                multiple
-                onChange={handleFileSelect}
-                style={{ display: 'none' }}
-                accept="image/*,audio/*"
+        {comments.map((comment) => (
+          <Box key={comment._id} sx={{ mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+              <Avatar 
+                src={getAuthorInfo(comment.author).profileImage}
+                alt={getAuthorInfo(comment.author).username}
+                sx={{ mr: 2 }}
               />
-              <Button
-                variant="outlined"
-                startIcon={<AttachFileIcon />}
-                onClick={() => fileInputRef.current.click()}
-                sx={{ mr: 1 }}
-              >
-                Atașează Fișiere
-              </Button>
+              <Box sx={{ flexGrow: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="subtitle2">
+                    {getAuthorInfo(comment.author).username}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true, locale: ro })}
+                  </Typography>
+                </Box>
+                <Typography paragraph>
+                  {comment.content}
+                </Typography>
 
-              <Box sx={{ mt: 1 }}>
-                {files.map((file, index) => (
-                  <Chip
-                    key={index}
-                    label={file.name}
-                    onDelete={() => handleRemoveFile(index)}
-                    sx={{ m: 0.5 }}
-                  />
-                ))}
+                {user && (user._id === comment.author._id || user._id === topic.author._id) && (
+                  <>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleMenuOpen(e, comment)}
+                    >
+                      <MoreVertIcon />
+                    </IconButton>
+                    <Menu
+                      anchorEl={menuAnchorEl}
+                      open={Boolean(menuAnchorEl)}
+                      onClose={handleMenuClose}
+                    >
+                      <MenuItem onClick={handleDeleteComment}>
+                        Șterge comentariul
+                      </MenuItem>
+                    </Menu>
+                  </>
+                )}
               </Box>
             </Box>
 
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-            >
-              Adaugă Comentariu
-            </Button>
-          </form>
-        </Paper>
-      ) : (
-        <Alert severity="info">
-          Trebuie să fiți autentificat pentru a adăuga comentarii.
-        </Alert>
-      )}
+            {/* Atașamente comentariu */}
+            {comment.attachments?.length > 0 && (
+              <Box sx={{ mt: 1 }}>
+                <Grid container spacing={1}>
+                  {comment.attachments.map((attachment, index) => (
+                    <Grid item key={index}>
+                      {attachment.type === 'image' ? (
+                        <Box
+                          component="img"
+                          src={attachment.url}
+                          alt={attachment.filename}
+                          sx={{
+                            maxWidth: '100%',
+                            height: 'auto',
+                            maxHeight: 150,
+                            borderRadius: 1
+                          }}
+                        />
+                      ) : (
+                        <Box>
+                          <audio controls>
+                            <source src={attachment.url} type="audio/mpeg" />
+                            Browserul dvs. nu suportă elementul audio.
+                          </audio>
+                        </Box>
+                      )}
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
+            )}
+
+            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+              <Button
+                size="small"
+                startIcon={<ThumbUpIcon />}
+                onClick={() => user ? handleLike(comment._id) : null}
+                color={user && hasUserLiked(comment) ? 'primary' : 'inherit'}
+                disabled={!user}
+                sx={{
+                  '&.Mui-disabled': {
+                    color: 'text.secondary',
+                  }
+                }}
+              >
+                {comment.likes?.length || 0}
+              </Button>
+              <Button
+                size="small"
+                startIcon={<ReplyIcon />}
+                onClick={() => user ? setReplyTo(comment) : null}
+                disabled={!user}
+                sx={{
+                  '&.Mui-disabled': {
+                    color: 'text.secondary',
+                  }
+                }}
+              >
+                Răspunde
+              </Button>
+            </Box>
+
+            {/* Răspunsuri la comentariu */}
+            {comment.replies && comment.replies.length > 0 && (
+              <Box sx={{ ml: 6 }}>
+                {comment.replies.map((reply) => (
+                  <Box key={reply._id} sx={{ mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                      <Avatar 
+                        src={getAuthorInfo(reply.author).profileImage}
+                        alt={getAuthorInfo(reply.author).username}
+                        sx={{ mr: 2, width: 32, height: 32 }}
+                      />
+                      <Box>
+                        <Typography variant="subtitle2">
+                          {getAuthorInfo(reply.author).username}
+                        </Typography>
+                        <Typography variant="body2">
+                          {reply.content}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+        ))}
+        
+        {/* Formular adăugare comentariu */}
+        {user ? (
+          <Paper sx={{ p: 2 }}>
+            {replyTo && (
+              <Box sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  Răspuns la comentariul lui {replyTo.author.username}
+                </Typography>
+                <IconButton size="small" onClick={() => setReplyTo(null)}>
+                  <CloseIcon />
+                </IconButton>
+              </Box>
+            )}
+
+            <form onSubmit={handleAddComment}>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Adaugă un comentariu..."
+                sx={{ mb: 2 }}
+              />
+
+              <Box sx={{ mb: 2 }}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  multiple
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
+                  accept="image/*,audio/*"
+                />
+                <Button
+                  variant="outlined"
+                  startIcon={<AttachFileIcon />}
+                  onClick={() => fileInputRef.current.click()}
+                  sx={{ mr: 1 }}
+                >
+                  Atașează Fișiere
+                </Button>
+
+                <Box sx={{ mt: 1 }}>
+                  {files.map((file, index) => (
+                    <Chip
+                      key={index}
+                      label={file.name}
+                      onDelete={() => handleRemoveFile(index)}
+                      sx={{ m: 0.5 }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+              >
+                Adaugă Comentariu
+              </Button>
+            </form>
+          </Paper>
+        ) : (
+          <Alert severity="info">
+            Trebuie să fiți autentificat pentru a adăuga comentarii.
+          </Alert>
+        )}
+      </Paper>
     </Container>
   );
 };

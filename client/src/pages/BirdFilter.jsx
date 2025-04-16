@@ -167,21 +167,24 @@ const BirdFilter = () => {
   const loadAllBirds = useCallback(async () => {
     try {
       setLoadingResults(true);
+      setError(null);
       console.log("Loading all birds...");
       
-      // Use birdService function instead of direct API call
       const response = await getAllBirds();
       console.log("API response:", response);
       
-      // Update this to match the structure from birdService
-      const allBirds = response.birds || [];
+      if (!response || !response.birds) {
+        throw new Error('Nu s-au putut încărca păsările. Răspuns invalid de la server.');
+      }
+      
+      const allBirds = response.birds;
       console.log(`Found ${allBirds.length} birds`);
       
       setResults(allBirds);
       setError(null);
     } catch (error) {
       console.error("Eroare la încărcarea păsărilor:", error);
-      setError('Nu s-au putut încărca păsările.');
+      setError(error.message || 'Nu s-au putut încărca păsările.');
       setResults([]);
     } finally {
       setLoadingResults(false);
@@ -192,104 +195,40 @@ const BirdFilter = () => {
   const filterBirdsManually = async () => {
     try {
       setLoadingResults(true);
+      setError(null);
       console.log("Starting manual filter with:", { 
         aspect: aspectIndex >= 0 ? aspect : 'Not selected', 
         featherColor: featherColorIndex >= 0 ? featherColor : 'Not selected', 
         habitat: habitatIndex >= 0 ? habitat : 'Not selected' 
       });
-      
-      // First, get all birds
-      const response = await getAllBirds();
-      const allBirds = response.birds || [];
-      console.log(`Loaded ${allBirds.length} birds for manual filtering`);
-      
-      // Now filter them manually based on the selected criteria
-      let filteredBirds = [...allBirds];
-      
-      // Filter by aspect if selected - USING TITLE FIELD (conform structurii din BD)
-      if (aspectIndex >= 0 && aspect) {
-        console.log(`Filtering by aspect title: ${aspect}`);
-        
-        filteredBirds = filteredBirds.filter(bird => {
-          if (!bird.aspects || !Array.isArray(bird.aspects)) return false;
-          
-          // Debug output for specific bird
-          if (bird.name === "Barză albă") {
-            console.log("Barză albă aspects:", JSON.stringify(bird.aspects));
-          }
-          
-          // Pentru aspects, folosim câmpul title conform structurii din BD
-          return bird.aspects.some(a => {
-            const match = a.title === aspect;
-            
-            if (bird.name === "Barză albă" && match) {
-              console.log("Found match for Barză albă aspect!");
-            }
-            
-            return match;
-          });
-        });
-        console.log(`After aspect filter: ${filteredBirds.length} birds remaining`);
+
+      // Construiește obiectul cu criteriile de filtrare
+      const filterCriteria = {};
+      if (aspectIndex >= 0) filterCriteria.aspect = aspect;
+      if (featherColorIndex >= 0) filterCriteria.featherColor = featherColor;
+      if (habitatIndex >= 0) filterCriteria.habitat = habitat;
+
+      let filteredBirds;
+      // Verifică dacă există cel puțin un criteriu de filtrare
+      if (Object.keys(filterCriteria).length === 0) {
+        // Dacă nu există criterii, încarcă toate păsările
+        const response = await getAllBirds();
+        filteredBirds = response.birds;
+      } else {
+        // Altfel, aplică filtrele
+        filteredBirds = await filterBirds(filterCriteria);
       }
-      
-      // Filter by feather color if selected - USING COLOR FIELD (conform structurii din BD)
-      if (featherColorIndex >= 0 && featherColor) {
-        console.log(`Filtering by feather color: ${featherColor}`);
-        
-        filteredBirds = filteredBirds.filter(bird => {
-          if (!bird.featherColors || !Array.isArray(bird.featherColors)) return false;
-          
-          // Debug output for specific bird
-          if (bird.name === "Barză albă") {
-            console.log("Barză albă featherColors:", JSON.stringify(bird.featherColors));
-          }
-          
-          // Pentru featherColors, folosim câmpul color conform structurii din BD
-          return bird.featherColors.some(fc => {
-            const match = fc.color === featherColor;
-            
-            if (bird.name === "Barză albă" && match) {
-              console.log("Found match for Barză albă feather color!");
-            }
-            
-            return match;
-          });
-        });
-        console.log(`After feather color filter: ${filteredBirds.length} birds remaining`);
+
+      if (!filteredBirds) {
+        throw new Error('Nu s-au putut încărca rezultatele filtrării.');
       }
-      
-      // Filter by habitat if selected - USING NAME FIELD (conform structurii din BD)
-      if (habitatIndex >= 0 && habitat) {
-        console.log(`Filtering by habitat name: ${habitat}`);
-        
-        filteredBirds = filteredBirds.filter(bird => {
-          if (!bird.habitats || !Array.isArray(bird.habitats)) return false;
-          
-          // Debug output for specific bird
-          if (bird.name === "Barză albă") {
-            console.log("Barză albă habitats:", JSON.stringify(bird.habitats));
-          }
-          
-          // Pentru habitats, folosim câmpul name conform structurii din BD
-          return bird.habitats.some(h => {
-            const match = h.name === habitat;
-            
-            if (bird.name === "Barză albă" && match) {
-              console.log("Found match for Barză albă habitat!");
-            }
-            
-            return match;
-          });
-        });
-        console.log(`After habitat filter: ${filteredBirds.length} birds remaining`);
-      }
-      
-      console.log(`Final results: ${filteredBirds.length} birds`);
+
       setResults(filteredBirds);
       setError(null);
     } catch (error) {
       console.error("Eroare la filtrarea păsărilor:", error);
-      setError('Nu s-au putut filtra păsările.');
+      setError(error.message || 'A apărut o eroare la filtrarea păsărilor. Vă rugăm încercați din nou.');
+      setResults([]);
     } finally {
       setLoadingResults(false);
     }
@@ -300,15 +239,13 @@ const BirdFilter = () => {
     loadAllBirds();
   }, [loadAllBirds]);
 
-  // Actualizăm rezultatele doar când se schimbă filtrele
+  // Actualizăm rezultatele doar când se schimbă filtrele și avem cel puțin un filtru activ
   useEffect(() => {
-    if (aspect || featherColor || habitat) {
+    const hasActiveFilters = aspect || featherColor || habitat;
+    if (hasActiveFilters) {
       filterBirdsManually();
-    } else {
-      // Dacă nu sunt filtre active, încărcăm toate păsările
-      loadAllBirds();
     }
-  }, [aspect, featherColor, habitat, loadAllBirds]);
+  }, [aspect, featherColor, habitat]);
 
   // Funcții pentru navigarea prin opțiuni
   const prevAspect = () => {

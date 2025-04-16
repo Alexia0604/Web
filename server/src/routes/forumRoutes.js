@@ -99,6 +99,14 @@ router.get('/topics/:id', async (req, res) => {
       return res.status(404).json({ message: 'Topicul nu a fost găsit' });
     }
 
+    // Verificăm dacă autorul există și setăm un autor default dacă nu
+    if (!topic.author) {
+      topic.author = {
+        username: 'Utilizator șters',
+        profileImage: '/images/default-avatar.png'
+      };
+    }
+
     // Incrementăm numărul de vizualizări
     topic.views += 1;
     await topic.save();
@@ -112,8 +120,16 @@ router.get('/topics/:id', async (req, res) => {
         select: 'username'
       });
 
-    // Pentru fiecare comentariu principal, obținem răspunsurile
+    // Pentru fiecare comentariu principal, obținem răspunsurile și verificăm autorii
     const commentsWithReplies = await Promise.all(comments.map(async (comment) => {
+      // Verificăm dacă autorul comentariului există
+      if (!comment.author) {
+        comment.author = {
+          username: 'Utilizator șters',
+          profileImage: '/images/default-avatar.png'
+        };
+      }
+
       const replies = await Comment.find({ parentComment: comment._id })
         .sort({ createdAt: 1 })
         .populate('author', 'username profileImage')
@@ -121,9 +137,21 @@ router.get('/topics/:id', async (req, res) => {
           path: 'likes',
           select: 'username'
         });
+
+      // Verificăm autorii pentru răspunsuri
+      const processedReplies = replies.map(reply => {
+        if (!reply.author) {
+          reply.author = {
+            username: 'Utilizator șters',
+            profileImage: '/images/default-avatar.png'
+          };
+        }
+        return reply;
+      });
+
       return {
         ...comment.toObject(),
-        replies
+        replies: processedReplies
       };
     }));
 
@@ -132,6 +160,7 @@ router.get('/topics/:id', async (req, res) => {
       comments: commentsWithReplies
     });
   } catch (error) {
+    console.error('Eroare la încărcarea topicului:', error);
     res.status(500).json({ message: 'Eroare server', error: error.message });
   }
 });
@@ -406,50 +435,63 @@ router.delete('/comments/:id', authenticate, isAuthor, async (req, res) => {
 // POST like/unlike comentariu
 router.post('/comments/:id/like', authenticate, async (req, res) => {
   try {
+    // Găsim comentariul fără populare inițială
     const comment = await Comment.findById(req.params.id);
+    
     if (!comment) {
       return res.status(404).json({ message: 'Comentariul nu a fost găsit' });
     }
 
     const userId = req.user._id;
-    const hasLiked = comment.likes.includes(userId);
-
-    if (hasLiked) {
-      // Unlike
-      comment.likes = comment.likes.filter(id => id.toString() !== userId.toString());
+    
+    // Verificăm dacă utilizatorul a dat deja like
+    const userLikeIndex = comment.likes.findIndex(
+      like => like.toString() === userId.toString()
+    );
+    
+    if (userLikeIndex !== -1) {
+      // Dacă utilizatorul a dat deja like, îl eliminăm
+      comment.likes.splice(userLikeIndex, 1);
     } else {
-      // Like
+      // Dacă utilizatorul nu a dat like, îl adăugăm
       comment.likes.push(userId);
-
-      // Notificare pentru autorul comentariului
-      if (comment.author.toString() !== userId.toString()) {
-        const topic = await Topic.findById(comment.topic);
-        const notification = new Notification({
-          recipient: comment.author,
-          type: 'like',
-          topic: comment.topic,
-          comment: comment._id,
-          actor: userId,
-          message: `${req.user.username} a apreciat comentariul tău la "${topic.title}"`
-        });
-        await notification.save();
-        
-        // Trimitem notificarea în timp real
-        req.notificationHandler.sendNotification(comment.author, notification);
+      
+      // Creare notificare doar dacă autorul comentariului există și este diferit de utilizatorul curent
+      if (comment.author && comment.author.toString() !== userId.toString()) {
+        try {
+          // Găsim topicul pentru a include titlul în notificare
+          const topic = await Topic.findById(comment.topic);
+          const topicTitle = topic ? topic.title : "un topic";
+          
+          await Notification.create({
+            recipient: comment.author,
+            type: 'like',
+            topic: comment.topic,
+            comment: comment._id,
+            actor: userId,
+            message: `${req.user.username} a apreciat comentariul tău în "${topicTitle}"`
+          });
+        } catch (notifError) {
+          console.error("Eroare la crearea notificării:", notifError);
+          // Continuăm chiar dacă notificarea eșuează
+        }
       }
     }
-
+    
+    // Salvăm comentariul
     await comment.save();
-
+    
+    // Returnăm comentariul populat
     const updatedComment = await Comment.findById(comment._id)
       .populate('author', 'username profileImage')
       .populate({
         path: 'likes',
-        select: 'username'
+        select: 'username profileImage'
       });
-
+    
     res.json(updatedComment);
   } catch (error) {
+    console.error('Eroare la actualizarea like-ului:', error);
     res.status(500).json({ message: 'Eroare server', error: error.message });
   }
 });

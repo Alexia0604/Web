@@ -76,13 +76,23 @@ export const getAllBirds = async (page = 1, limit = 12, searchTerm = '') => {
       }
     });
     
+    if (!response.data || !response.data.birds) {
+      throw new Error('Răspuns invalid de la server');
+    }
+
     return {
       birds: response.data.birds.map(processBird),
       pagination: response.data.pagination
     };
   } catch (error) {
     console.error('Eroare la obținerea păsărilor:', error);
-    throw error;
+    if (error.response) {
+      throw new Error(error.response.data.message || 'Eroare la obținerea păsărilor');
+    } else if (error.request) {
+      throw new Error('Nu s-a putut comunica cu serverul. Verificați conexiunea la internet.');
+    } else {
+      throw new Error(error.message || 'A apărut o eroare neașteptată');
+    }
   }
 };
 
@@ -93,10 +103,20 @@ export const getBirdsByIds = async (ids) => {
       params: { ids: ids.join(',') }
     });
     
+    if (!response.data) {
+      throw new Error('Răspuns invalid de la server');
+    }
+
     return response.data.map(processBird);
   } catch (error) {
     console.error('Eroare la obținerea păsărilor după ID-uri:', error);
-    throw error;
+    if (error.response) {
+      throw new Error(error.response.data.message || 'Eroare la obținerea păsărilor');
+    } else if (error.request) {
+      throw new Error('Nu s-a putut comunica cu serverul. Verificați conexiunea la internet.');
+    } else {
+      throw new Error(error.message || 'A apărut o eroare neașteptată');
+    }
   }
 };
 
@@ -104,10 +124,21 @@ export const getBirdsByIds = async (ids) => {
 export const getBirdById = async (id) => {
   try {
     const response = await axios.get(`${API_URL}/birds/${id}`);
+    
+    if (!response.data) {
+      throw new Error('Răspuns invalid de la server');
+    }
+
     return processBird(response.data);
   } catch (error) {
     console.error(`Eroare la obținerea păsării cu ID ${id}:`, error);
-    throw error;
+    if (error.response) {
+      throw new Error(error.response.data.message || 'Eroare la obținerea păsării');
+    } else if (error.request) {
+      throw new Error('Nu s-a putut comunica cu serverul. Verificați conexiunea la internet.');
+    } else {
+      throw new Error(error.message || 'A apărut o eroare neașteptată');
+    }
   }
 };
 
@@ -116,24 +147,33 @@ export const getFilterOptions = async () => {
   try {
     const response = await axios.get(`${API_URL}/birds/filter-options`);
     
-    // Procesează opțiunile de filtrare pentru a avea imagini corecte
+    if (!response.data) {
+      throw new Error('Răspuns invalid de la server');
+    }
+
     return {
-      aspects: response.data.aspects.map(aspect => ({
+      aspects: response.data.aspects?.map(aspect => ({
         ...aspect,
         image: resolveImageUrl(aspect.image)
-      })),
-      featherColors: response.data.featherColors.map(color => ({
+      })) || [],
+      featherColors: response.data.featherColors?.map(color => ({
         ...color,
         image: resolveImageUrl(color.image)
-      })),
-      habitats: response.data.habitats.map(habitat => ({
+      })) || [],
+      habitats: response.data.habitats?.map(habitat => ({
         ...habitat,
         image: resolveImageUrl(habitat.image)
-      }))
+      })) || []
     };
   } catch (error) {
     console.error('Eroare la obținerea opțiunilor de filtrare:', error);
-    throw error;
+    if (error.response) {
+      throw new Error(error.response.data.message || 'Eroare la obținerea opțiunilor de filtrare');
+    } else if (error.request) {
+      throw new Error('Nu s-a putut comunica cu serverul. Verificați conexiunea la internet.');
+    } else {
+      throw new Error(error.message || 'A apărut o eroare neașteptată');
+    }
   }
 };
 
@@ -144,9 +184,19 @@ export const filterBirds = async (criteria) => {
       params: criteria
     });
     
+    if (!response.data) {
+      throw new Error('Răspuns invalid de la server');
+    }
+
     return response.data.map(processBird);
   } catch (error) {
     console.error('Eroare la filtrarea păsărilor:', error);
-    throw error;
+    if (error.response) {
+      throw new Error(error.response.data.message || 'Eroare la filtrarea păsărilor');
+    } else if (error.request) {
+      throw new Error('Nu s-a putut comunica cu serverul. Verificați conexiunea la internet.');
+    } else {
+      throw new Error(error.message || 'A apărut o eroare neașteptată');
+    }
   }
 };

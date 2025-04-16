@@ -46,7 +46,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET toate opțiunile de filtrare
-router.get('/filter-options', auth.authenticate, async (req, res) => {
+router.get('/filter-options', async (req, res) => {
   try {
     // Obține toate aspectele, culorile și habitatele unice
     const birds = await Bird.find({}, 'aspects featherColors habitats');
@@ -116,7 +116,7 @@ router.get('/filter-options', auth.authenticate, async (req, res) => {
 });
 
 // GET păsări filtrate după criterii
-router.get('/filter', auth.authenticate, async (req, res) => {
+router.get('/filter', async (req, res) => {
   try {
     const { aspect, featherColor, habitat } = req.query;
     
@@ -181,7 +181,7 @@ router.get('/filter', auth.authenticate, async (req, res) => {
 });
 
 // GET păsări după o listă de ID-uri (IMPORTANT: această rută trebuie să fie înainte de /:id)
-router.get('/byIds', auth.authenticate, async (req, res) => {
+router.get('/byIds', async (req, res) => {
   try {
     const idsString = req.query.ids;
     if (!idsString) {
